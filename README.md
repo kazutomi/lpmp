@@ -10,5 +10,5 @@ and generates corresponding .txt files.
 
 ## Commands available in .lmp files
 
-- @&lt;kw&gt;{word,yomi} : keyword to be indexed; yomi can be omitted
-- @&lt;ruby&gt;{word,furigana} : give furigana
+- `@<kw>{word,yomi}` : keyword to be indexed; yomi can be omitted
+- `@<ruby>{word,furigana}` : give furigana
