@@ -1,0 +1,27 @@
+#!/usr/bin/env ruby
+# coding: utf-8
+
+def process_kw(l)
+  l.gsub(/@<kw>{([^,}]+)(,[^}]+)?}/){"**#{$1}**"}  # ignore yomi for now
+end
+
+def process(l)
+  s = nil
+  if /^@@/ =~ l
+    # reserved for line directive
+    s = nil
+  else
+    s = process_kw(l)
+  end
+  s
+end
+
+def main
+  ARGF.each do |l|
+    s = process(l)
+    puts s if s
+  end
+end
+
+main
+0
