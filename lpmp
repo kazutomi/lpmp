@@ -96,15 +96,25 @@ def number_sections(s)
 end
 
 def number_figures(s)
-  s.gsub(/@<fig>\{([^}]*)\}/) do |whole|
+  s.sub(/^@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do |whole|
     $state.figno += 1
     $figtag[$1] = "#{$state.secno[0]}-#{$state.figno}"
     whole
   end
 end
 
+def figure_format(no)
+  "図#{no}　"
+end
+
 def tag_figures(s)
-  s.sub(/^@<fig>\{([^}]*)\}/) {"{#{$1}}"}
+  s.sub(/^@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
+    tag = $1
+    figno = $figtag[tag] || 'XX'
+    caption = $2
+    file = $3
+    "{#{tag}}\n![#{figure_format(figno)}#{caption}](#{file})"
+  end
 end
 
 def reference_figures(s)
