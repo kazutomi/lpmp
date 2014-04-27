@@ -1,6 +1,26 @@
 #!/usr/bin/env ruby
 # coding: utf-8
 
+class LpmpState
+  DefaultSectionDepth = 5
+  attr_accessor :matter, :secno
+  attr_reader :secdepth
+
+  def initialize(sec_depth = DefaultSectionDepth)
+    @matter = :main
+    @secdepth = sec_depth
+    reset_sections
+  end
+
+  def reset_sections
+    @secno = Array.new(@secdepth, 0)
+  end
+end
+
+$state = nil
+
+NPass = 2  # two-pass processing
+
 def process_kw(l)
   l.gsub(/@<kw>{([^,}]+)(,[^}]+)?}/){"**#{$1}**"}  # ignore yomi for now
 end
@@ -9,7 +29,7 @@ def process_ruby(l)
   l.gsub(/@<ruby>{([^,]+),([^}]+)}/){"#{$1}^#{$2}^"}
 end
 
-def process(l)
+def process_line(l)
   s = nil
   if /^@@/ =~ l
     # reserved for line directive
@@ -21,10 +41,118 @@ def process(l)
   s
 end
 
+def switch_matter(s)
+  case s
+  when '{frontmatter}'
+    $state.matter = :front
+    $state.reset_sections
+  when '{mainmatter}'
+    $state.matter = :main
+    $state.reset_sections
+  when '{backmatter}'
+    $state.matter = :back
+    $state.reset_sections
+  else
+  end
+  s
+end
+
+def number_sections(s)
+  return s unless s.start_with?('#')
+  depth = nil
+  $state.secdepth.downto(1) do |i|
+    if s.start_with?('#'*i)
+      depth = i
+      break
+    end
+  end
+  depth -= 1  # 0-origin
+
+  $state.secno[depth] += 1
+  if depth < $state.secdepth
+    for i in (depth+1)..$state.secdepth do
+      $state.secno[i] = 0
+    end
+  end
+
+  tag = case $state.matter
+        when :front
+          '#front'
+        when :main
+          '#section'
+        when :back
+          '#back'
+        end
+  for i in 0..depth do
+    tag += "-#{$state.secno[i]}"
+  end
+
+  s += " {#{tag}}"
+  s
+end
+
+def number_figures(s)
+  s
+end
+
+def process_file(in_lines, pass)
+  out_lines = []
+
+  case pass
+  when 0  # number sections and figures
+    $state = LpmpState.new
+    in_lines.each do |l|
+      s = switch_matter(l)
+      s = number_sections(s) unless s.nil?
+      s = number_figures(s) unless s.nil?
+      out_lines << s unless s.nil?
+    end
+  when 1  # process Re:VIEW-like commands
+    in_lines.each do |l|
+      s = process_line(l)
+      out_lines << s unless s.nil?
+    end
+  else
+    $stderr.puts "Unexpected pass #{npass}"
+    out_lines = in_lines
+  end
+
+  out_lines
+end
+
 def main
-  ARGF.each do |l|
-    s = process(l)
-    puts s if s
+  txtfiles = []
+  open('Book.txt') do |f|
+    f.each_line do |l|
+      txtfiles << l.chomp
+    end
+  end
+
+  files_lines = []
+  txtfiles.each do |txtf|
+    if File.extname(txtf) != '.txt'
+      $stderr.puts "Book.txt entry \"#{txtf}\" is not .txt; skipping"
+      next
+    end
+    lines = []
+    lmpf = txtf.sub(/\.txt$/, '.lmp')
+    open(lmpf) do |f|
+      files_lines << f.readlines.map {|l| l.chomp}
+    end
+  end
+
+  NPass.times do |npass|
+    files_lines.size.times do |i|
+      files_lines[i] = process_file(files_lines[i], npass)
+    end
+  end
+
+  [txtfiles, files_lines].transpose.each do |txtf, lines|
+    open(txtf, 'w') do |f|
+      lines.each do |l|
+        f.puts l
+      end
+    end
   end
 end
 
