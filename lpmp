@@ -1,6 +1,11 @@
 #!/usr/bin/env ruby
 # coding: utf-8
 
+$in_lines = nil
+$out_lines = nil
+
+NPass = 2  # two-pass processing
+
 def process_kw(l)
   l.gsub(/@<kw>{([^,}]+)(,[^}]+)?}/){"**#{$1}**"}  # ignore yomi for now
 end
@@ -22,9 +27,16 @@ def process(l)
 end
 
 def main
-  ARGF.each do |l|
-    s = process(l)
-    puts s if s
+  $in_lines = ARGF.readlines
+  NPass.times do
+    $out_lines = []
+    $in_lines.each do |l|
+      s = process(l)
+      $out_lines << s unless s.nil?
+    end
+  end
+  $out_lines.each do |l|
+    puts l
   end
 end
 
