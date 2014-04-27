@@ -11,7 +11,7 @@ class LpmpState
   end
 end
 
-$state = LpmpState.new
+$state = nil
 
 NPass = 2  # two-pass processing
 
@@ -35,15 +35,29 @@ def process(l)
   s
 end
 
+def number_sections(s)
+  s
+end
+
+def number_figures(s)
+  s
+end
+
 def main
   in_lines = ARGF.readlines
   out_lines = nil
 
   NPass.times do |npass|
     case npass
-    when 0
-      out_lines = in_lines
-    when 1
+    when 0  # number sections and figures
+      out_lines = []
+      $state = LpmpState.new
+      in_lines.each do |l|
+        s = number_sections(l)
+        s = number_figures(s) unless s.nil?
+        out_lines << s unless s.nil?
+      end
+    when 1  # process Re:VIEW-like commands
       out_lines = []
       in_lines.each do |l|
         s = process(l)
