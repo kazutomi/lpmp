@@ -8,8 +8,12 @@ class LpmpState
 
   def initialize(sec_depth = DefaultSectionDepth)
     @matter = :main
-    @secno = Array.new(sec_depth, 0)
     @secdepth = sec_depth
+    reset_sections
+  end
+
+  def reset_sections
+    @secno = Array.new(@secdepth, 0)
   end
 end
 
@@ -37,6 +41,22 @@ def process(l)
   s
 end
 
+def switch_matter(s)
+  case s
+  when '{frontmatter}'
+    $state.matter = :front
+    $state.reset_sections
+  when '{mainmatter}'
+    $state.matter = :main
+    $state.reset_sections
+  when '{backmatter}'
+    $state.matter = :back
+    $state.reset_sections
+  else
+  end
+  s
+end
+
 def number_sections(s)
   return s unless s.start_with?('#')
   depth = nil
@@ -55,7 +75,14 @@ def number_sections(s)
     end
   end
 
-  tag = '#section'
+  tag = case $state.matter
+        when :front
+          '#front'
+        when :main
+          '#section'
+        when :back
+          '#back'
+        end
   for i in 0..depth do
     tag += "-#{$state.secno[i]}"
   end
@@ -78,7 +105,8 @@ def main
       out_lines = []
       $state = LpmpState.new
       in_lines.each do |l|
-        s = number_sections(l)
+        s = switch_matter(l)
+        s = number_sections(s) unless s.nil?
         s = number_figures(s) unless s.nil?
         out_lines << s unless s.nil?
       end
