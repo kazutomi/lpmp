@@ -4,10 +4,12 @@
 class LpmpState
   DefaultSectionDepth = 5
   attr_accessor :matter, :secno
+  attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
     @matter = :main
     @secno = Array.new(sec_depth, 0)
+    @secdepth = sec_depth
   end
 end
 
@@ -36,6 +38,29 @@ def process(l)
 end
 
 def number_sections(s)
+  return s unless s.start_with?('#')
+  depth = nil
+  $state.secdepth.downto(1) do |i|
+    if s.start_with?('#'*i)
+      depth = i
+      break
+    end
+  end
+  depth -= 1  # 0-origin
+
+  $state.secno[depth] += 1
+  if depth < $state.secdepth
+    for i in (depth+1)..$state.secdepth do
+      $state.secno[i] = 0
+    end
+  end
+
+  tag = '#section'
+  for i in 0..depth do
+    tag += "-#{$state.secno[i]}"
+  end
+
+  s += " {#{tag}}"
   s
 end
 
@@ -44,7 +69,7 @@ def number_figures(s)
 end
 
 def main
-  in_lines = ARGF.readlines
+  in_lines = ARGF.readlines.map {|s| s.chomp}
   out_lines = nil
 
   NPass.times do |npass|
@@ -67,9 +92,10 @@ def main
       $stderr.puts "Unexpected pass #{npass}"
       out_lines = in_lines
     end
+    in_lines = out_lines
   end
 
-  out_lines.each do |l|
+  in_lines.each do |l|
     puts l
   end
 end
