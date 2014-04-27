@@ -11,8 +11,6 @@ class LpmpState
   end
 end
 
-$in_lines = nil
-$out_lines = nil
 $state = LpmpState.new
 
 NPass = 2  # two-pass processing
@@ -38,15 +36,26 @@ def process(l)
 end
 
 def main
-  $in_lines = ARGF.readlines
-  NPass.times do
-    $out_lines = []
-    $in_lines.each do |l|
-      s = process(l)
-      $out_lines << s unless s.nil?
+  in_lines = ARGF.readlines
+  out_lines = nil
+
+  NPass.times do |npass|
+    case npass
+    when 0
+      out_lines = in_lines
+    when 1
+      out_lines = []
+      in_lines.each do |l|
+        s = process(l)
+        out_lines << s unless s.nil?
+      end
+    else
+      $stderr.puts "Unexpected pass #{npass}"
+      out_lines = in_lines
     end
   end
-  $out_lines.each do |l|
+
+  out_lines.each do |l|
     puts l
   end
 end
