@@ -29,7 +29,7 @@ def process_ruby(l)
   l.gsub(/@<ruby>{([^,]+),([^}]+)}/){"#{$1}^#{$2}^"}
 end
 
-def process(l)
+def process_line(l)
   s = nil
   if /^@@/ =~ l
     # reserved for line directive
@@ -95,36 +95,64 @@ def number_figures(s)
   s
 end
 
-def main
-  in_lines = ARGF.readlines.map {|s| s.chomp}
-  out_lines = nil
+def process_file(in_lines, pass)
+  out_lines = []
 
-  NPass.times do |npass|
-    case npass
-    when 0  # number sections and figures
-      out_lines = []
-      $state = LpmpState.new
-      in_lines.each do |l|
-        s = switch_matter(l)
-        s = number_sections(s) unless s.nil?
-        s = number_figures(s) unless s.nil?
-        out_lines << s unless s.nil?
-      end
-    when 1  # process Re:VIEW-like commands
-      out_lines = []
-      in_lines.each do |l|
-        s = process(l)
-        out_lines << s unless s.nil?
-      end
-    else
-      $stderr.puts "Unexpected pass #{npass}"
-      out_lines = in_lines
+  case pass
+  when 0  # number sections and figures
+    $state = LpmpState.new
+    in_lines.each do |l|
+      s = switch_matter(l)
+      s = number_sections(s) unless s.nil?
+      s = number_figures(s) unless s.nil?
+      out_lines << s unless s.nil?
     end
-    in_lines = out_lines
+  when 1  # process Re:VIEW-like commands
+    in_lines.each do |l|
+      s = process_line(l)
+      out_lines << s unless s.nil?
+    end
+  else
+    $stderr.puts "Unexpected pass #{npass}"
+    out_lines = in_lines
   end
 
-  in_lines.each do |l|
-    puts l
+  out_lines
+end
+
+def main
+  txtfiles = []
+  open('Book.txt') do |f|
+    f.each_line do |l|
+      txtfiles << l.chomp
+    end
+  end
+
+  files_lines = []
+  txtfiles.each do |txtf|
+    if File.extname(txtf) != '.txt'
+      $stderr.puts "Book.txt entry \"#{txtf}\" is not .txt; skipping"
+      next
+    end
+    lines = []
+    lmpf = txtf.sub(/\.txt$/, '.lmp')
+    open(lmpf) do |f|
+      files_lines << f.readlines.map {|l| l.chomp}
+    end
+  end
+
+  NPass.times do |npass|
+    files_lines.size.times do |i|
+      files_lines[i] = process_file(files_lines[i], npass)
+    end
+  end
+
+  [txtfiles, files_lines].transpose.each do |txtf, lines|
+    open(txtf, 'w') do |f|
+      lines.each do |l|
+        f.puts l
+      end
+    end
   end
 end
 
