@@ -1,8 +1,19 @@
 #!/usr/bin/env ruby
 # coding: utf-8
 
+class LpmpState
+  DefaultSectionDepth = 5
+  attr_accessor :matter, :secno
+
+  def initialize(sec_depth = DefaultSectionDepth)
+    @matter = :main
+    @secno = Array.new(sec_depth, 0)
+  end
+end
+
 $in_lines = nil
 $out_lines = nil
+$state = LpmpState.new
 
 NPass = 2  # two-pass processing
 
