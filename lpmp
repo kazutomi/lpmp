@@ -3,13 +3,14 @@
 
 class LpmpState
   DefaultSectionDepth = 5
-  attr_accessor :matter, :secno
+  attr_accessor :matter, :secno, :figno
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
     @matter = :main
     @secdepth = sec_depth
     reset_sections
+    @figno = 0
   end
 
   def reset_sections
@@ -18,6 +19,7 @@ class LpmpState
 end
 
 $state = nil
+$figtag = {}
 
 NPass = 2  # two-pass processing
 
@@ -75,6 +77,8 @@ def number_sections(s)
     end
   end
 
+  $state.figno = 0 if depth == 0
+
   tag = case $state.matter
         when :front
           '#front'
@@ -92,7 +96,29 @@ def number_sections(s)
 end
 
 def number_figures(s)
-  s
+  s.gsub(/@<fig>\{([^}]*)\}/) do |whole|
+    $state.figno += 1
+    $figtag[$1] = "#{$state.secno[0]}-#{$state.figno}"
+    whole
+  end
+end
+
+def tag_figures(s)
+  s.sub(/^@<fig>\{([^}]*)\}/) {"{#{$1}}"}
+end
+
+def reference_figures(s)
+  s.gsub(/@<fig>\(([^)]*)\)/) do
+    figno = ''
+    tag = $1
+    if $figtag.key?(tag)
+      figno = "[#{$figtag[tag]}](#{tag})"
+    else
+      $stderr.puts "Undefined figure tag #{tag}"
+      figno = 'XX'
+    end
+    figno
+  end
 end
 
 def process_file(in_lines, pass)
@@ -109,7 +135,9 @@ def process_file(in_lines, pass)
     end
   when 1  # process Re:VIEW-like commands
     in_lines.each do |l|
-      s = process_line(l)
+      s = tag_figures(l)
+      s = reference_figures(s) unless s.nil?
+      s = process_line(s) unless s.nil?
       out_lines << s unless s.nil?
     end
   else
