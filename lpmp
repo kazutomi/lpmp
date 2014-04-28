@@ -63,13 +63,13 @@ class LineStream
     @queue << l
   end
 
-  def push(x)
+  def unshift(x)
     case x
     when Array, InputLine
       @queue.unshift(x)
     when nil
     else
-      $stderr.puts "Error: cannot push #{x} to LineStream"
+      $stderr.puts "Error: cannot unshift #{x} to LineStream"
     end
   end
 
@@ -277,12 +277,12 @@ def process_file(in_lines, pass)
   case pass
   when 0  # number sections and figures
     while not in_lines.empty?
-      in_lines.push(number_code_lists(in_lines.getl))
-      in_lines.push(switch_verb(in_lines.getl))
+      in_lines.unshift(number_code_lists(in_lines.getl))
+      in_lines.unshift(switch_verb(in_lines.getl))
       unless $state.verb
-        in_lines.push(switch_matter(in_lines.getl))
-        in_lines.push(number_sections(in_lines.getl))
-        in_lines.push(number_figures(in_lines.getl))
+        in_lines.unshift(switch_matter(in_lines.getl))
+        in_lines.unshift(number_sections(in_lines.getl))
+        in_lines.unshift(number_figures(in_lines.getl))
       end
       if (l = in_lines.getl)
         out_lines.putl(l)
@@ -290,13 +290,13 @@ def process_file(in_lines, pass)
     end
   when 1
     while not in_lines.empty?
-      in_lines.push(tag_code_lists(in_lines.getl))
-      in_lines.push(switch_verb(in_lines.getl))
+      in_lines.unshift(tag_code_lists(in_lines.getl))
+      in_lines.unshift(switch_verb(in_lines.getl))
       unless $state.verb
-        in_lines.push(tag_figures(in_lines.getl))
-        in_lines.push(reference_figures(in_lines.getl))
-        in_lines.push(reference_code_lists(in_lines.getl))
-        in_lines.push(process_commands(in_lines.getl))
+        in_lines.unshift(tag_figures(in_lines.getl))
+        in_lines.unshift(reference_figures(in_lines.getl))
+        in_lines.unshift(reference_code_lists(in_lines.getl))
+        in_lines.unshift(process_commands(in_lines.getl))
       end
       if (l = in_lines.getl)
         out_lines.putl(l)
