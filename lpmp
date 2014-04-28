@@ -30,12 +30,61 @@ class LpmpState
   end
 end
 
-class InputLine
-  attr_accessor :line, :no
+class LineStream
+  class InputLine
+    attr_accessor :line, :no
 
-  def initialize(line, no)
-    @line = line
-    @no = no
+    def initialize(line, no)
+      @line = line
+      @no = no
+    end
+  end
+
+  attr_accessor :queue  # of InputLines
+
+  def initialize(lines = [])
+    @queue = []
+    n = 0
+    lines.each do |s|
+      n += 1
+      @queue << InputLine.new(s, n)
+    end
+  end
+
+  def empty?
+    @queue.size == 0
+  end
+
+  def getl
+    @queue.shift
+  end
+
+  def putl(l)
+    @queue << l
+  end
+
+  def push(x)
+    case x
+    when Array, InputLine
+      @queue.unshift(x)
+    when nil
+    else
+      $stderr.puts "Error: cannot push #{x} to LineStream"
+    end
+  end
+
+  def each
+    @queue.each do |l|
+      yield l
+    end
+  end
+
+  def dump
+    puts "*** Dumping LineStream ***"
+    @queue.each do |l|
+      puts "#{l.inspect}"
+    end
+    puts "*** End Dumping ***"
   end
 end
 
@@ -223,31 +272,35 @@ def switch_verb(l)
 end
 
 def process_file(in_lines, pass)
-  out_lines = []
+  out_lines = LineStream.new
 
   case pass
   when 0  # number sections and figures
-    in_lines.each do |l|
-      l = number_code_lists(l)
-      l = switch_verb(l) unless l.nil?
+    while not in_lines.empty?
+      in_lines.push(number_code_lists(in_lines.getl))
+      in_lines.push(switch_verb(in_lines.getl))
       unless $state.verb
-        l = switch_matter(l) unless l.nil?
-        l = number_sections(l) unless l.nil?
-        l = number_figures(l) unless l.nil?
+        in_lines.push(switch_matter(in_lines.getl))
+        in_lines.push(number_sections(in_lines.getl))
+        in_lines.push(number_figures(in_lines.getl))
       end
-      out_lines << l unless l.nil?
+      if (l = in_lines.getl)
+        out_lines.putl(l)
+      end
     end
-  when 1  # process Re:VIEW-like commands
-    in_lines.each do |l|
-      l = tag_code_lists(l)
-      l = switch_verb(l) unless l.nil?
+  when 1
+    while not in_lines.empty?
+      in_lines.push(tag_code_lists(in_lines.getl))
+      in_lines.push(switch_verb(in_lines.getl))
       unless $state.verb
-        l = tag_figures(l) unless l.nil?
-        l = reference_figures(l) unless l.nil?
-        l = reference_code_lists(l) unless l.nil?
-        l = process_commands(l) unless l.nil?
+        in_lines.push(tag_figures(in_lines.getl))
+        in_lines.push(reference_figures(in_lines.getl))
+        in_lines.push(reference_code_lists(in_lines.getl))
+        in_lines.push(process_commands(in_lines.getl))
       end
-      out_lines << l unless l.nil?
+      if (l = in_lines.getl)
+        out_lines.putl(l)
+      end
     end
   else
     $stderr.puts "Unexpected pass #{npass}"
@@ -273,15 +326,11 @@ def main
       $stderr.puts "Book.txt entry \"#{txtf}\" is not .txt; skipping"
       next
     end
-    lines = []
     lmpf = txtf.sub(/\.txt$/, '.lmp')
     $state.file_name = lmpf
+    lines = nil
     open(lmpf) do |f|
-      line_no = 0
-      f.each_line do |l|
-        line_no += 1
-        lines << InputLine.new(l.chomp, line_no)
-      end
+      lines = LineStream.new(f.readlines.map {|l| l.chomp})
     end
     files_lines << lines
   end
@@ -289,7 +338,11 @@ def main
   NPass.times do |npass|
     $state.verb = false
     files_lines.size.times do |i|
+      #puts "%%% before pass #{npass}, file #{i}"
+      #files_lines[i].dump
       files_lines[i] = process_file(files_lines[i], npass)
+      #puts "%%% after pass #{npass}, file #{i}"
+      #files_lines[i].dump
     end
   end
 
