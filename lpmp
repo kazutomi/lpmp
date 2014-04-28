@@ -4,21 +4,25 @@
 case ENV['LANG']
 when /\Aja_/
   FigureFormat = "図%s　"
+  CodeListFormat = "リスト%s　"
 else
   FigureFormat = "Figure %s: "
+  CodeListFormat = "List %s: "
 end
 
 class LpmpState
   DefaultSectionDepth = 5
-  attr_accessor :matter, :secno, :figno, :file_name
+  attr_accessor :file_name, :matter, :secno, :figno, :listno, :verb
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
+    @file_name = nil
     @matter = :main
     @secdepth = sec_depth
     reset_sections
     @figno = 0
-    @file_name = nil
+    @listno = 0
+    @verb = false
   end
 
   def reset_sections
@@ -26,17 +30,67 @@ class LpmpState
   end
 end
 
-class InputLine
-  attr_accessor :line, :no
+class LineStream
+  class InputLine
+    attr_accessor :line, :no
 
-  def initialize(line, no)
-    @line = line
-    @no = no
+    def initialize(line, no)
+      @line = line
+      @no = no
+    end
+  end
+
+  attr_accessor :queue  # of InputLines
+
+  def initialize(lines = [])
+    @queue = []
+    n = 0
+    lines.each do |s|
+      n += 1
+      @queue << InputLine.new(s, n)
+    end
+  end
+
+  def empty?
+    @queue.size == 0
+  end
+
+  def getl
+    @queue.shift
+  end
+
+  def putl(l)
+    @queue << l
+  end
+
+  def unshift(x)
+    case x
+    when Array, InputLine
+      @queue.unshift(*x)
+    when nil
+    else
+      $stderr.puts "Error: cannot unshift #{x} to LineStream"
+    end
+  end
+
+  def each
+    @queue.each do |l|
+      yield l
+    end
+  end
+
+  def dump
+    puts "*** Dumping LineStream ***"
+    @queue.each do |l|
+      puts "#{l.inspect}"
+    end
+    puts "*** End Dumping ***"
   end
 end
 
 $state = nil
 $figtag = {}
+$listtag = {}
 
 NPass = 2  # two-pass processing
 
@@ -121,19 +175,71 @@ def number_figures(l)
   l
 end
 
+def number_code_lists(l)
+  case l.line
+  when /^@<list>\{([^}]*)\}/
+    $state.listno += 1
+    $listtag[$1] = "#{$state.secno[0]}-#{$state.listno}"
+  end
+  l
+end
+
 def figure_format(no)
   sprintf FigureFormat, no
 end
 
+def code_list_format(no)
+  sprintf CodeListFormat, no
+end
+
 def tag_figures(l)
-  l.line.sub!(/^@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
+  if /\A@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/ =~ l.line
     tag = $1
     figno = $figtag[tag] || 'XX'
     caption = $2
     file = $3
-    "{#{tag}}\n![#{figure_format(figno)}#{caption}](#{file})"
+    [
+      LineStream::InputLine.new("{##{tag}}", l.no),
+      LineStream::InputLine.new(
+        "![#{figure_format(figno)}#{caption}](#{file})",
+        l.no
+      ),
+    ]
+  else
+    l
   end
-  l
+end
+
+def tag_code_lists(l)
+  case l.line
+  when /\A@<list>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/
+    tag = $1
+    listno = $listtag[tag] || 'XX'
+    caption = $2
+    file = $3
+    [
+      LineStream::InputLine.new("{##{tag}}", l.no),
+      LineStream::InputLine.new(
+        "<<[#{code_list_format(listno)}#{caption}](#{file})",
+        l.no
+      ),
+    ]
+  when /\A@<list>\{([^}]*)\}\[([^\]]*)\]\s*\Z/
+    tag = $1
+    listno = $listtag[tag] || 'XX'
+    caption = $2
+    [
+      LineStream::InputLine.new(
+        "{id=\"#{tag}\", title=\"#{code_list_format(listno)}#{caption}\"}",
+        l.no
+      ),
+      LineStream::InputLine.new('~~~~~~~~', l.no),
+    ]
+  when /\A@<list>\s*\Z/
+    LineStream::InputLine.new('~~~~~~~~', l.no)
+  else
+    l
+  end
 end
 
 def reference_figures(l)
@@ -141,7 +247,7 @@ def reference_figures(l)
     figno = ''
     tag = $1
     if $figtag.key?(tag)
-      figno = "[#{$figtag[tag]}](#{tag})"
+      figno = "[#{$figtag[tag]}](##{tag})"
     else
       $stderr.puts "#{$state.file_name}:#{l.no}: warning: undefined figure tag #{tag}"
       figno = 'XX'
@@ -151,23 +257,67 @@ def reference_figures(l)
   l
 end
 
+def reference_code_lists(l)
+  l.line.gsub!(/@<list>\(([^)]*)\)/) do
+    listno = ''
+    tag = $1
+    if $listtag.key?(tag)
+      listno = "[#{$listtag[tag]}](##{tag})"
+    else
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: undefined list tag #{tag}"
+      listno = 'XX'
+    end
+    listno
+  end
+  l
+end
+
+def switch_verb(l)
+  if $state.verb
+    if $state.verb == l.line
+      $state.verb = false
+    end
+  else
+    case l.line
+    when /\A~+\Z/
+      $state.verb = l.line
+    when /\A@<list>\{[^}]+\}\[[^\]]+\]\s*\Z/
+      $state.verb = '@<list>'
+    end
+  end
+  l
+end
+
 def process_file(in_lines, pass)
-  out_lines = []
+  out_lines = LineStream.new
 
   case pass
   when 0  # number sections and figures
-    in_lines.each do |l|
-      l = switch_matter(l)
-      l = number_sections(l) unless l.nil?
-      l = number_figures(l) unless l.nil?
-      out_lines << l unless l.nil?
+    while not in_lines.empty?
+      in_lines.unshift(number_code_lists(in_lines.getl))
+      in_lines.unshift(switch_verb(in_lines.getl))
+      unless $state.verb
+        in_lines.unshift(switch_matter(in_lines.getl))
+        in_lines.unshift(number_sections(in_lines.getl))
+        in_lines.unshift(number_figures(in_lines.getl))
+      end
+      if (l = in_lines.getl)
+        out_lines.putl(l)
+      end
     end
-  when 1  # process Re:VIEW-like commands
-    in_lines.each do |l|
-      l = tag_figures(l)
-      l = reference_figures(l) unless l.nil?
-      l = process_commands(l) unless l.nil?
-      out_lines << l unless l.nil?
+  when 1
+    while not in_lines.empty?
+      in_lines.unshift(tag_code_lists(in_lines.getl))
+      in_lines.unshift(switch_verb(in_lines.getl))
+      unless $state.verb
+        in_lines.unshift(tag_figures(in_lines.getl))
+        in_lines.unshift(reference_figures(in_lines.getl))
+        in_lines.unshift(reference_code_lists(in_lines.getl))
+        in_lines.unshift(process_commands(in_lines.getl))
+      end
+      if (l = in_lines.getl)
+        out_lines.putl(l)
+      end
     end
   else
     $stderr.puts "Unexpected pass #{npass}"
@@ -187,27 +337,27 @@ def main
     end
   end
 
+  lmpfiles = []
   files_lines = []
   txtfiles.each do |txtf|
     if File.extname(txtf) != '.txt'
       $stderr.puts "Book.txt entry \"#{txtf}\" is not .txt; skipping"
       next
     end
-    lines = []
     lmpf = txtf.sub(/\.txt$/, '.lmp')
+    lmpfiles << lmpf
     $state.file_name = lmpf
+    lines = nil
     open(lmpf) do |f|
-      line_no = 0
-      f.each_line do |l|
-        line_no += 1
-        lines << InputLine.new(l.chomp, line_no)
-      end
+      lines = LineStream.new(f.readlines.map {|l| l.chomp})
     end
     files_lines << lines
   end
 
   NPass.times do |npass|
+    $state.verb = false
     files_lines.size.times do |i|
+      $state.file_name = lmpfiles[i]
       files_lines[i] = process_file(files_lines[i], npass)
     end
   end
