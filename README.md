@@ -14,6 +14,8 @@ and generates corresponding .txt files.
 - `@<ruby>{word,furigana}` : give furigana
 - `@<fig>(tag)` : figure reference
 - `@<fig>{tag}[caption](file)` : insert image
+- `@<list>{tag}[caption](file)` : insert code
+- `@<list>{tag}[caption]` ... `@<list>` : literal code block
 
 Do not add `#` in front of tags specified in `@<...>` commands;
 they automatically add one if necessary.
