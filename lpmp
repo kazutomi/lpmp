@@ -220,7 +220,7 @@ def tag_code_lists(l)
     [
       LineStream::InputLine.new("{##{tag}}", l.no),
       LineStream::InputLine.new(
-        "[#{code_list_format(listno)}#{caption}](#{file})",
+        "<<[#{code_list_format(listno)}#{caption}](#{file})",
         l.no
       ),
     ]
