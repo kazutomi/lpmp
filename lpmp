@@ -105,7 +105,7 @@ def process_kw(l)
 end
 
 def process_ruby(l)
-  l.line.gsub!(/@<ruby>{([^,]+),([^}]+)}/){"#{$1}^#{$2}^"}
+  l.line.gsub!(/@<ruby>{([^,]+),([^}]+)}/){"#{$1}（#{$2}）"}
   l
 end
 
