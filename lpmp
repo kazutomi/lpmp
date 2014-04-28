@@ -337,6 +337,7 @@ def main
     end
   end
 
+  lmpfiles = []
   files_lines = []
   txtfiles.each do |txtf|
     if File.extname(txtf) != '.txt'
@@ -344,6 +345,7 @@ def main
       next
     end
     lmpf = txtf.sub(/\.txt$/, '.lmp')
+    lmpfiles << lmpf
     $state.file_name = lmpf
     lines = nil
     open(lmpf) do |f|
@@ -355,6 +357,7 @@ def main
   NPass.times do |npass|
     $state.verb = false
     files_lines.size.times do |i|
+      $state.file_name = lmpfiles[i]
       files_lines[i] = process_file(files_lines[i], npass)
     end
   end
