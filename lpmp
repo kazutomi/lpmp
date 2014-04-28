@@ -64,7 +64,6 @@ class LineStream
   end
 
   def unshift(x)
-    #puts "Unshifting #{x.inspect} to #{@queue}"
     case x
     when Array, InputLine
       @queue.unshift(*x)
@@ -72,7 +71,6 @@ class LineStream
     else
       $stderr.puts "Error: cannot unshift #{x} to LineStream"
     end
-    #puts "Unshift done #{@queue}"
   end
 
   def each
@@ -238,7 +236,9 @@ def tag_code_lists(l)
       LineStream::InputLine.new('~~~~~~~~', l.no),
     ]
   when /\A@<list>\s*\Z/
-    '~~~~~~~~'
+    LineStream::InputLine.new('~~~~~~~~', l.no)
+  else
+    l
   end
 end
 
@@ -355,11 +355,7 @@ def main
   NPass.times do |npass|
     $state.verb = false
     files_lines.size.times do |i|
-      #puts "%%% before pass #{npass}, file #{i}"
-      #files_lines[i].dump
       files_lines[i] = process_file(files_lines[i], npass)
-      #puts "%%% after pass #{npass}, file #{i}"
-      #files_lines[i].dump
     end
   end
 
