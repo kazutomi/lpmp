@@ -16,6 +16,8 @@ and generates corresponding .txt files.
 - `@<fig>{tag}[caption](file)` : insert image
 - `@<list>{tag}[caption](file)` : insert code
 - `@<list>{tag}[caption]` ... `@<list>` : literal code block
+- `@<slabel>{tag}` ... label the section
+- `@<sref>(tag)` ... reference to section
 
 Do not add `#` in front of tags specified in `@<...>` commands;
 they automatically add one if necessary.
