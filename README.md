@@ -19,6 +19,7 @@ and generates corresponding .txt files.
 - `@<list>{tag}[caption](file)` : insert code
 - `@<list>{tag}[caption]` ... `@<list>` : literal code block
 - `@<list>(tag)` : list reference
+- `@<cmd>{option}` ... `@<cmd>` : command-line session
 - `@<slabel>{tag}` ... label the section
 - `@<sref>(tag)` ... reference to section
 

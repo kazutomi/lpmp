@@ -359,6 +359,23 @@ def reference_sections(l)
   l
 end
 
+def expand_cmd(l)
+  case l.line
+  when /\A(.> )?@<cmd>\{([^}]+)?\}\s*\Z/
+    tbhead = $1 || ''
+    opts = $2.nil? ? "lang=\"text\", linenos=off" : $2
+    [
+      LineStream::InputLine.new("#{tbhead}{#{opts}}", l.no),
+      LineStream::InputLine.new("#{tbhead}~~~~~~~~", l.no),
+    ]
+  when /\A(.> )?@<cmd>\s*\Z/
+    tbhead = $1 || ''
+    LineStream::InputLine.new("#{tbhead}~~~~~~~~", l.no)
+  else
+    l
+  end
+end
+
 def switch_verb(l)
   if $state.verb
     if $state.verb == l.line
@@ -371,6 +388,9 @@ def switch_verb(l)
     when /\A(.> )?@<list>\{[^}]+\}\[[^\]]+\]\s*\Z/
       tbhead = $1 || ''
       $state.verb = "#{tbhead}@<list>"
+    when /\A(.> )?@<cmd>\{[^}]+\}\s*\Z/
+      tbhead = $1 || ''
+      $state.verb = "#{tbhead}@<cmd>"
     end
   end
   l
@@ -403,6 +423,7 @@ def process_file(in_lines, pass)
       l = in_lines.peekl
       unless l.line.start_with?('%%')
         in_lines.unshift(tag_code_lists(in_lines.getl))
+        in_lines.unshift(expand_cmd(in_lines.getl))
         in_lines.unshift(switch_verb(in_lines.getl))
         unless $state.verb
           in_lines.unshift(tag_figures(in_lines.getl))
