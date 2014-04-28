@@ -1,15 +1,24 @@
 #!/usr/bin/env ruby
 # coding: utf-8
 
+case ENV['LANG']
+when /\Aja_/
+  FigureFormat = "図%s　"
+else
+  FigureFormat = "Figure %s: "
+end
+
 class LpmpState
   DefaultSectionDepth = 5
-  attr_accessor :matter, :secno
+  attr_accessor :matter, :secno, :figno, :file_name
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
     @matter = :main
     @secdepth = sec_depth
     reset_sections
+    @figno = 0
+    @file_name = nil
   end
 
   def reset_sections
@@ -17,32 +26,43 @@ class LpmpState
   end
 end
 
+class InputLine
+  attr_accessor :line, :no
+
+  def initialize(line, no)
+    @line = line
+    @no = no
+  end
+end
+
 $state = nil
+$figtag = {}
 
 NPass = 2  # two-pass processing
 
 def process_kw(l)
-  l.gsub(/@<kw>{([^,}]+)(,[^}]+)?}/){"**#{$1}**"}  # ignore yomi for now
+  l.line.gsub!(/@<kw>{([^,}]+)(,[^}]+)?}/){"**#{$1}**"}  # ignore yomi for now
+  l
 end
 
 def process_ruby(l)
-  l.gsub(/@<ruby>{([^,]+),([^}]+)}/){"#{$1}^#{$2}^"}
+  l.line.gsub!(/@<ruby>{([^,]+),([^}]+)}/){"#{$1}^#{$2}^"}
+  l
 end
 
-def process_line(l)
-  s = nil
-  if /^@@/ =~ l
+def process_commands(l)
+  if /^@@/ =~ l.line
     # reserved for line directive
-    s = nil
+    l = nil
   else
-    s = process_kw(l)
-    s = process_ruby(s) unless s.nil?
+    l = process_kw(l)
+    l = process_ruby(l) unless l.nil?
   end
-  s
+  l
 end
 
-def switch_matter(s)
-  case s
+def switch_matter(l)
+  case l.line
   when '{frontmatter}'
     $state.matter = :front
     $state.reset_sections
@@ -54,14 +74,14 @@ def switch_matter(s)
     $state.reset_sections
   else
   end
-  s
+  l
 end
 
-def number_sections(s)
-  return s unless s.start_with?('#')
+def number_sections(l)
+  return l unless l.line.start_with?('#')
   depth = nil
   $state.secdepth.downto(1) do |i|
-    if s.start_with?('#'*i)
+    if l.line.start_with?('#'*i)
       depth = i
       break
     end
@@ -75,6 +95,8 @@ def number_sections(s)
     end
   end
 
+  $state.figno = 0 if depth == 0
+
   tag = case $state.matter
         when :front
           '#front'
@@ -87,12 +109,46 @@ def number_sections(s)
     tag += "-#{$state.secno[i]}"
   end
 
-  s += " {#{tag}}"
-  s
+  l.line += " {#{tag}}"
+  l
 end
 
-def number_figures(s)
-  s
+def number_figures(l)
+  l.line.scan(/^@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
+    $state.figno += 1
+    $figtag[$1] = "#{$state.secno[0]}-#{$state.figno}"
+  end
+  l
+end
+
+def figure_format(no)
+  sprintf FigureFormat, no
+end
+
+def tag_figures(l)
+  l.line.sub!(/^@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
+    tag = $1
+    figno = $figtag[tag] || 'XX'
+    caption = $2
+    file = $3
+    "{#{tag}}\n![#{figure_format(figno)}#{caption}](#{file})"
+  end
+  l
+end
+
+def reference_figures(l)
+  l.line.gsub!(/@<fig>\(([^)]*)\)/) do
+    figno = ''
+    tag = $1
+    if $figtag.key?(tag)
+      figno = "[#{$figtag[tag]}](#{tag})"
+    else
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: undefined figure tag #{tag}"
+      figno = 'XX'
+    end
+    figno
+  end
+  l
 end
 
 def process_file(in_lines, pass)
@@ -100,17 +156,18 @@ def process_file(in_lines, pass)
 
   case pass
   when 0  # number sections and figures
-    $state = LpmpState.new
     in_lines.each do |l|
-      s = switch_matter(l)
-      s = number_sections(s) unless s.nil?
-      s = number_figures(s) unless s.nil?
-      out_lines << s unless s.nil?
+      l = switch_matter(l)
+      l = number_sections(l) unless l.nil?
+      l = number_figures(l) unless l.nil?
+      out_lines << l unless l.nil?
     end
   when 1  # process Re:VIEW-like commands
     in_lines.each do |l|
-      s = process_line(l)
-      out_lines << s unless s.nil?
+      l = tag_figures(l)
+      l = reference_figures(l) unless l.nil?
+      l = process_commands(l) unless l.nil?
+      out_lines << l unless l.nil?
     end
   else
     $stderr.puts "Unexpected pass #{npass}"
@@ -121,6 +178,8 @@ def process_file(in_lines, pass)
 end
 
 def main
+  $state = LpmpState.new
+
   txtfiles = []
   open('Book.txt') do |f|
     f.each_line do |l|
@@ -136,9 +195,15 @@ def main
     end
     lines = []
     lmpf = txtf.sub(/\.txt$/, '.lmp')
+    $state.file_name = lmpf
     open(lmpf) do |f|
-      files_lines << f.readlines.map {|l| l.chomp}
+      line_no = 0
+      f.each_line do |l|
+        line_no += 1
+        lines << InputLine.new(l.chomp, line_no)
+      end
     end
+    files_lines << lines
   end
 
   NPass.times do |npass|
@@ -150,7 +215,7 @@ def main
   [txtfiles, files_lines].transpose.each do |txtf, lines|
     open(txtf, 'w') do |f|
       lines.each do |l|
-        f.puts l
+        f.puts l.line
       end
     end
   end
