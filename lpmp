@@ -12,16 +12,17 @@ end
 
 class LpmpState
   DefaultSectionDepth = 5
-  attr_accessor :file_name, :matter, :secno, :figno, :listno
+  attr_accessor :file_name, :matter, :secno, :figno, :listno, :verb
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
+    @file_name = nil
     @matter = :main
     @secdepth = sec_depth
     reset_sections
     @figno = 0
     @listno = 0
-    @file_name = nil
+    @verb = false
   end
 
   def reset_sections
@@ -206,25 +207,47 @@ def reference_code_lists(l)
   l
 end
 
+def switch_verb(l)
+  if $state.verb
+    if $state.verb == l.line
+      $state.verb = false
+    end
+  else
+    case l.line
+    when /\A~+\Z/
+      $state.verb = l.line
+    when /\A@<list>\{[^}]+\}\[[^\]]+\]\s*\Z/
+      $state.verb = '@<list>'
+    end
+  end
+  l
+end
+
 def process_file(in_lines, pass)
   out_lines = []
 
   case pass
   when 0  # number sections and figures
     in_lines.each do |l|
-      l = switch_matter(l)
-      l = number_sections(l) unless l.nil?
-      l = number_figures(l) unless l.nil?
-      l = number_code_lists(l) unless l.nil?
+      l = number_code_lists(l)
+      l = switch_verb(l) unless l.nil?
+      unless $state.verb
+        l = switch_matter(l) unless l.nil?
+        l = number_sections(l) unless l.nil?
+        l = number_figures(l) unless l.nil?
+      end
       out_lines << l unless l.nil?
     end
   when 1  # process Re:VIEW-like commands
     in_lines.each do |l|
-      l = tag_figures(l)
-      l = tag_code_lists(l) unless l.nil?
-      l = reference_figures(l) unless l.nil?
-      l = reference_code_lists(l) unless l.nil?
-      l = process_commands(l) unless l.nil?
+      l = tag_code_lists(l)
+      l = switch_verb(l) unless l.nil?
+      unless $state.verb
+        l = tag_figures(l) unless l.nil?
+        l = reference_figures(l) unless l.nil?
+        l = reference_code_lists(l) unless l.nil?
+        l = process_commands(l) unless l.nil?
+      end
       out_lines << l unless l.nil?
     end
   else
@@ -265,6 +288,7 @@ def main
   end
 
   NPass.times do |npass|
+    $state.verb = false
     files_lines.size.times do |i|
       files_lines[i] = process_file(files_lines[i], npass)
     end
