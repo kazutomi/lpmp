@@ -3,7 +3,7 @@
 
 class LpmpState
   DefaultSectionDepth = 5
-  attr_accessor :matter, :secno, :figno
+  attr_accessor :matter, :secno, :figno, :file_name
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
@@ -11,6 +11,7 @@ class LpmpState
     @secdepth = sec_depth
     reset_sections
     @figno = 0
+    @file_name = nil
   end
 
   def reset_sections
@@ -135,7 +136,7 @@ def reference_figures(l)
     if $figtag.key?(tag)
       figno = "[#{$figtag[tag]}](#{tag})"
     else
-      $stderr.puts "Warning: #{l.no}: undefined figure tag #{tag}"
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: undefined figure tag #{tag}"
       figno = 'XX'
     end
     figno
@@ -148,7 +149,6 @@ def process_file(in_lines, pass)
 
   case pass
   when 0  # number sections and figures
-    $state = LpmpState.new
     in_lines.each do |l|
       l = switch_matter(l)
       l = number_sections(l) unless l.nil?
@@ -171,6 +171,8 @@ def process_file(in_lines, pass)
 end
 
 def main
+  $state = LpmpState.new
+
   txtfiles = []
   open('Book.txt') do |f|
     f.each_line do |l|
@@ -186,6 +188,7 @@ def main
     end
     lines = []
     lmpf = txtf.sub(/\.txt$/, '.lmp')
+    $state.file_name = lmpf
     open(lmpf) do |f|
       line_no = 0
       f.each_line do |l|
