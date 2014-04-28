@@ -149,7 +149,7 @@ def tag_figures(l)
     figno = $figtag[tag] || 'XX'
     caption = $2
     file = $3
-    "{#{tag}}\n![#{figure_format(figno)}#{caption}](#{file})"
+    "{##{tag}}\n![#{figure_format(figno)}#{caption}](#{file})"
   end
   l
 end
@@ -160,15 +160,14 @@ def tag_code_lists(l)
     listno = $listtag[tag] || 'XX'
     caption = $2
     file = $3
-    "{#{tag}}\n" +
+    "{##{tag}}\n" +
     "[#{code_list_format(listno)}#{caption}](#{file})\n"
   end
   l.line.sub!(/^@<list>\{([^}]*)\}\[([^\]]*)\]/) do
     tag = $1
     listno = $listtag[tag] || 'XX'
     caption = $2
-    "{#{tag}}\n" +
-    "{title=\"#{code_list_format(listno)}#{caption}\"}\n" +
+    "{id=\"#{tag}\", title=\"#{code_list_format(listno)}#{caption}\"}\n" +
     "~~~~~~~~\n"
   end
   l.line.sub!(/^@<list>$/) do
@@ -182,7 +181,7 @@ def reference_figures(l)
     figno = ''
     tag = $1
     if $figtag.key?(tag)
-      figno = "[#{$figtag[tag]}](#{tag})"
+      figno = "[#{$figtag[tag]}](##{tag})"
     else
       $stderr.puts "#{$state.file_name}:#{l.no}: warning: undefined figure tag #{tag}"
       figno = 'XX'
@@ -197,7 +196,7 @@ def reference_code_lists(l)
     listno = ''
     tag = $1
     if $listtag.key?(tag)
-      listno = "[#{$listtag[tag]}](#{tag})"
+      listno = "[#{$listtag[tag]}](##{tag})"
     else
       $stderr.puts "#{$state.file_name}:#{l.no}: warning: undefined list tag #{tag}"
       listno = 'XX'
