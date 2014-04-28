@@ -33,27 +33,28 @@ $figtag = {}
 NPass = 2  # two-pass processing
 
 def process_kw(l)
-  l.gsub(/@<kw>{([^,}]+)(,[^}]+)?}/){"**#{$1}**"}  # ignore yomi for now
+  l.line.gsub!(/@<kw>{([^,}]+)(,[^}]+)?}/){"**#{$1}**"}  # ignore yomi for now
+  l
 end
 
 def process_ruby(l)
-  l.gsub(/@<ruby>{([^,]+),([^}]+)}/){"#{$1}^#{$2}^"}
+  l.line.gsub!(/@<ruby>{([^,]+),([^}]+)}/){"#{$1}^#{$2}^"}
+  l
 end
 
 def process_line(l)
-  s = nil
-  if /^@@/ =~ l
+  if /^@@/ =~ l.line
     # reserved for line directive
-    s = nil
+    l = nil
   else
-    s = process_kw(l)
-    s = process_ruby(s) unless s.nil?
+    l = process_kw(l)
+    l = process_ruby(l) unless l.nil?
   end
-  s
+  l
 end
 
-def switch_matter(s)
-  case s
+def switch_matter(l)
+  case l.line
   when '{frontmatter}'
     $state.matter = :front
     $state.reset_sections
@@ -65,14 +66,14 @@ def switch_matter(s)
     $state.reset_sections
   else
   end
-  s
+  l
 end
 
-def number_sections(s)
-  return s unless s.start_with?('#')
+def number_sections(l)
+  return l unless l.line.start_with?('#')
   depth = nil
   $state.secdepth.downto(1) do |i|
-    if s.start_with?('#'*i)
+    if l.line.start_with?('#'*i)
       depth = i
       break
     end
@@ -100,44 +101,46 @@ def number_sections(s)
     tag += "-#{$state.secno[i]}"
   end
 
-  s += " {#{tag}}"
-  s
+  l.line += " {#{tag}}"
+  l
 end
 
-def number_figures(s)
-  s.sub(/^@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do |whole|
+def number_figures(l)
+  l.line.scan(/^@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
     $state.figno += 1
     $figtag[$1] = "#{$state.secno[0]}-#{$state.figno}"
-    whole
   end
+  l
 end
 
 def figure_format(no)
   "図#{no}　"
 end
 
-def tag_figures(s)
-  s.sub(/^@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
+def tag_figures(l)
+  l.line.sub!(/^@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
     tag = $1
     figno = $figtag[tag] || 'XX'
     caption = $2
     file = $3
     "{#{tag}}\n![#{figure_format(figno)}#{caption}](#{file})"
   end
+  l
 end
 
-def reference_figures(s)
-  s.gsub(/@<fig>\(([^)]*)\)/) do
+def reference_figures(l)
+  l.line.gsub!(/@<fig>\(([^)]*)\)/) do
     figno = ''
     tag = $1
     if $figtag.key?(tag)
       figno = "[#{$figtag[tag]}](#{tag})"
     else
-      $stderr.puts "Undefined figure tag #{tag}"
+      $stderr.puts "Warning: #{l.no}: undefined figure tag #{tag}"
       figno = 'XX'
     end
     figno
   end
+  l
 end
 
 def process_file(in_lines, pass)
@@ -147,19 +150,17 @@ def process_file(in_lines, pass)
   when 0  # number sections and figures
     $state = LpmpState.new
     in_lines.each do |l|
-      s = l.line
-      s = switch_matter(s)
-      s = number_sections(s) unless s.nil?
-      s = number_figures(s) unless s.nil?
-      out_lines << InputLine.new(s, l.no) unless s.nil?
+      l = switch_matter(l)
+      l = number_sections(l) unless l.nil?
+      l = number_figures(l) unless l.nil?
+      out_lines << l unless l.nil?
     end
   when 1  # process Re:VIEW-like commands
     in_lines.each do |l|
-      s = l.line
-      s = tag_figures(s)
-      s = reference_figures(s) unless s.nil?
-      s = process_line(s) unless s.nil?
-      out_lines << InputLine.new(s, l.no) unless s.nil?
+      l = tag_figures(l)
+      l = reference_figures(l) unless l.nil?
+      l = process_line(l) unless l.nil?
+      out_lines << l unless l.nil?
     end
   else
     $stderr.puts "Unexpected pass #{npass}"
