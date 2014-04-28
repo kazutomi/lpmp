@@ -18,6 +18,15 @@ class LpmpState
   end
 end
 
+class InputLine
+  attr_accessor :line, :no
+
+  def initialize(line, no)
+    @line = line
+    @no = no
+  end
+end
+
 $state = nil
 $figtag = {}
 
@@ -138,17 +147,19 @@ def process_file(in_lines, pass)
   when 0  # number sections and figures
     $state = LpmpState.new
     in_lines.each do |l|
-      s = switch_matter(l)
+      s = l.line
+      s = switch_matter(s)
       s = number_sections(s) unless s.nil?
       s = number_figures(s) unless s.nil?
-      out_lines << s unless s.nil?
+      out_lines << InputLine.new(s, l.no) unless s.nil?
     end
   when 1  # process Re:VIEW-like commands
     in_lines.each do |l|
-      s = tag_figures(l)
+      s = l.line
+      s = tag_figures(s)
       s = reference_figures(s) unless s.nil?
       s = process_line(s) unless s.nil?
-      out_lines << s unless s.nil?
+      out_lines << InputLine.new(s, l.no) unless s.nil?
     end
   else
     $stderr.puts "Unexpected pass #{npass}"
@@ -175,8 +186,13 @@ def main
     lines = []
     lmpf = txtf.sub(/\.txt$/, '.lmp')
     open(lmpf) do |f|
-      files_lines << f.readlines.map {|l| l.chomp}
+      line_no = 0
+      f.each_line do |l|
+        line_no += 1
+        lines << InputLine.new(l.chomp, line_no)
+      end
     end
+    files_lines << lines
   end
 
   NPass.times do |npass|
@@ -188,7 +204,7 @@ def main
   [txtfiles, files_lines].transpose.each do |txtf, lines|
     open(txtf, 'w') do |f|
       lines.each do |l|
-        f.puts l
+        f.puts l.line
       end
     end
   end
