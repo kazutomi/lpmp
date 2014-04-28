@@ -4,13 +4,15 @@
 case ENV['LANG']
 when /\Aja_/
   FigureFormat = "図%s　"
+  CodeListFormat = "リスト%s　"
 else
   FigureFormat = "Figure %s: "
+  CodeListFormat = "List %s: "
 end
 
 class LpmpState
   DefaultSectionDepth = 5
-  attr_accessor :matter, :secno, :figno, :file_name
+  attr_accessor :file_name, :matter, :secno, :figno, :listno
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
@@ -18,6 +20,7 @@ class LpmpState
     @secdepth = sec_depth
     reset_sections
     @figno = 0
+    @listno = 0
     @file_name = nil
   end
 
@@ -37,6 +40,7 @@ end
 
 $state = nil
 $figtag = {}
+$listtag = {}
 
 NPass = 2  # two-pass processing
 
@@ -121,8 +125,21 @@ def number_figures(l)
   l
 end
 
+def number_code_lists(l)
+  case l.line
+  when /^@<list>\{([^}]*)\}/
+    $state.listno += 1
+    $listtag[$1] = "#{$state.secno[0]}-#{$state.listno}"
+  end
+  l
+end
+
 def figure_format(no)
   sprintf FigureFormat, no
+end
+
+def code_list_format(no)
+  sprintf CodeListFormat, no
 end
 
 def tag_figures(l)
@@ -132,6 +149,29 @@ def tag_figures(l)
     caption = $2
     file = $3
     "{#{tag}}\n![#{figure_format(figno)}#{caption}](#{file})"
+  end
+  l
+end
+
+def tag_code_lists(l)
+  l.line.sub!(/^@<list>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
+    tag = $1
+    listno = $listtag[tag] || 'XX'
+    caption = $2
+    file = $3
+    "{#{tag}}\n" +
+    "[#{code_list_format(listno)}#{caption}](#{file})\n"
+  end
+  l.line.sub!(/^@<list>\{([^}]*)\}\[([^\]]*)\]/) do
+    tag = $1
+    listno = $listtag[tag] || 'XX'
+    caption = $2
+    "{#{tag}}\n" +
+    "{title=\"#{code_list_format(listno)}#{caption}\"}\n" +
+    "~~~~~~~~\n"
+  end
+  l.line.sub!(/^@<list>$/) do
+    "~~~~~~~~\n"
   end
   l
 end
@@ -151,6 +191,21 @@ def reference_figures(l)
   l
 end
 
+def reference_code_lists(l)
+  l.line.gsub!(/@<list>\(([^)]*)\)/) do
+    listno = ''
+    tag = $1
+    if $listtag.key?(tag)
+      listno = "[#{$listtag[tag]}](#{tag})"
+    else
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: undefined list tag #{tag}"
+      listno = 'XX'
+    end
+    listno
+  end
+  l
+end
+
 def process_file(in_lines, pass)
   out_lines = []
 
@@ -160,12 +215,15 @@ def process_file(in_lines, pass)
       l = switch_matter(l)
       l = number_sections(l) unless l.nil?
       l = number_figures(l) unless l.nil?
+      l = number_code_lists(l) unless l.nil?
       out_lines << l unless l.nil?
     end
   when 1  # process Re:VIEW-like commands
     in_lines.each do |l|
       l = tag_figures(l)
+      l = tag_code_lists(l) unless l.nil?
       l = reference_figures(l) unless l.nil?
+      l = reference_code_lists(l) unless l.nil?
       l = process_commands(l) unless l.nil?
       out_lines << l unless l.nil?
     end
