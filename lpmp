@@ -91,6 +91,7 @@ end
 $state = nil
 $figtag = {}
 $listtag = {}
+$seclabel = {}
 
 NPass = 2  # two-pass processing
 
@@ -131,6 +132,22 @@ def switch_matter(l)
   l
 end
 
+def section_id(matter, secno, depth)
+  s = case matter
+      when :front
+        'front'
+      when :main
+        'section'
+      when :back
+        'back'
+      end
+  for i in 0..depth do
+    break if secno[i] == 0
+    s += "-#{secno[i]}"
+  end
+  s
+end
+
 def number_sections(l)
   return l unless l.line.start_with?('#')
   depth = nil
@@ -151,19 +168,9 @@ def number_sections(l)
 
   $state.figno = 0 if depth == 0
 
-  tag = case $state.matter
-        when :front
-          '#front'
-        when :main
-          '#section'
-        when :back
-          '#back'
-        end
-  for i in 0..depth do
-    tag += "-#{$state.secno[i]}"
-  end
+  id = section_id($state.matter, $state.secno, depth)
 
-  l.line += " {#{tag}}"
+  l.line += " {##{id}}"
   l
 end
 
@@ -180,6 +187,14 @@ def number_code_lists(l)
   when /^@<list>\{([^}]*)\}/
     $state.listno += 1
     $listtag[$1] = "#{$state.secno[0]}-#{$state.listno}"
+  end
+  l
+end
+
+def label_sections(l)
+  l.line.gsub!(/@<slabel>\{([^}]*)\}/) do
+    $seclabel[$1] = [$state.matter, $state.secno.join(' '), $state.secdepth]
+    ''
   end
   l
 end
@@ -272,6 +287,25 @@ def reference_code_lists(l)
   l
 end
 
+def reference_sections(l)
+  l.line.gsub!(/@<sref>\(([^)]*)\)/) do
+    secno = ''
+    label = $1
+    if $seclabel.key?(label)
+      matter, secs, depth = $seclabel[label]
+      secno = secs.split.map {|n| n.to_i}
+      sec_id = section_id(matter, secno, depth)
+      secstr = secno.take_while {|n| n > 0}.join('.')
+      refstr = "[#{secstr}](##{sec_id})"
+    else
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: undefined section label #{label}"
+      refstr = 'XX'
+    end
+    refstr
+  end
+  l
+end
+
 def switch_verb(l)
   if $state.verb
     if $state.verb == l.line
@@ -300,6 +334,7 @@ def process_file(in_lines, pass)
         in_lines.unshift(switch_matter(in_lines.getl))
         in_lines.unshift(number_sections(in_lines.getl))
         in_lines.unshift(number_figures(in_lines.getl))
+        in_lines.unshift(label_sections(in_lines.getl))
       end
       if (l = in_lines.getl)
         out_lines.putl(l)
@@ -313,6 +348,7 @@ def process_file(in_lines, pass)
         in_lines.unshift(tag_figures(in_lines.getl))
         in_lines.unshift(reference_figures(in_lines.getl))
         in_lines.unshift(reference_code_lists(in_lines.getl))
+        in_lines.unshift(reference_sections(in_lines.getl))
         in_lines.unshift(process_commands(in_lines.getl))
       end
       if (l = in_lines.getl)
