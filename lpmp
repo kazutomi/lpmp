@@ -157,7 +157,7 @@ def section_id(matter, secno, depth)
 end
 
 def number_sections(l)
-  return l unless /\A(.> )?(#+)/ =~ l.line
+  return l unless /\A(.?> )?(#+)/ =~ l.line
   tbhead = $1 || ''
   sharps = $2
   depth = sharps.size - 1  # zero-origin
@@ -226,7 +226,7 @@ def code_list_format(no)
 end
 
 def tag_figures(l)
-  if /\A(.> )?@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/ =~ l.line
+  if /\A(.?> )?@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/ =~ l.line
     tbhead = $1 || ''
     tag = $2
     figno = $figtag[tag] || 'XX'
@@ -246,14 +246,14 @@ end
 
 def tag_tables(l)
   case l.line
-  when /\A(.> )?@<tbl>\{([^}]*)\}\[([^\]]*)\]\s*\Z/
+  when /\A(.?> )?@<tbl>\{([^}]*)\}\[([^\]]*)\]\s*\Z/
     tbhead = $1 || ''
     tag = $2
     tblno = $tbltag[tag] || 'XX'
     caption = $3
     l.line = "#{tbhead}{id=\"#{tag}\",title=\"#{table_format(tblno)}#{caption}\"}"
     l
-  when /\A(.> )?@<tbl>\s*\Z/
+  when /\A(.?> )?@<tbl>\s*\Z/
     nil
   else
     l
@@ -262,7 +262,7 @@ end
 
 def tag_code_lists(l)
   case l.line
-  when /\A(.> )?@<list>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/
+  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/
     tbhead = $1 || ''
     tag = $2
     listno = $listtag[tag] || 'XX'
@@ -275,7 +275,7 @@ def tag_code_lists(l)
         l.no
       ),
     ]
-  when /\A(.> )?@<list>\{([^}]*)\}\[([^\]]*)\]\s*\Z/
+  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\]]*)\]\s*\Z/
     tbhead = $1 || ''
     tag = $2
     listno = $listtag[tag] || 'XX'
@@ -287,7 +287,7 @@ def tag_code_lists(l)
       ),
       LineStream::InputLine.new("#{tbhead}~~~~~~~~", l.no),
     ]
-  when /\A(.> )?@<list>\s*\Z/
+  when /\A(.?> )?@<list>\s*\Z/
     tbhead = $1 || ''
     LineStream::InputLine.new("#{tbhead}~~~~~~~~", l.no)
   else
@@ -361,14 +361,14 @@ end
 
 def expand_cmd(l)
   case l.line
-  when /\A(.> )?@<cmd>\{([^}]+)?\}\s*\Z/
+  when /\A(.?> )?@<cmd>\{([^}]+)?\}\s*\Z/
     tbhead = $1 || ''
     opts = $2.nil? ? "lang=\"text\", linenos=off" : $2
     [
       LineStream::InputLine.new("#{tbhead}{#{opts}}", l.no),
       LineStream::InputLine.new("#{tbhead}~~~~~~~~", l.no),
     ]
-  when /\A(.> )?@<cmd>\s*\Z/
+  when /\A(.?> )?@<cmd>\s*\Z/
     tbhead = $1 || ''
     LineStream::InputLine.new("#{tbhead}~~~~~~~~", l.no)
   else
@@ -383,12 +383,12 @@ def switch_verb(l)
     end
   else
     case l.line
-    when /\A(.> )?~+\Z/
+    when /\A(.?> )?~+\Z/
       $state.verb = l.line
-    when /\A(.> )?@<list>\{[^}]+\}\[[^\]]+\]\s*\Z/
+    when /\A(.?> )?@<list>\{[^}]+\}\[[^\]]+\]\s*\Z/
       tbhead = $1 || ''
       $state.verb = "#{tbhead}@<list>"
-    when /\A(.> )?@<cmd>\{[^}]+\}\s*\Z/
+    when /\A(.?> )?@<cmd>\{[^}]+\}\s*\Z/
       tbhead = $1 || ''
       $state.verb = "#{tbhead}@<cmd>"
     end
