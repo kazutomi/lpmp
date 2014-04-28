@@ -12,5 +12,8 @@ and generates corresponding .txt files.
 
 - `@<kw>{word,yomi}` : keyword to be indexed; yomi can be omitted
 - `@<ruby>{word,furigana}` : give furigana
-- `@<fig>(#tag)` : figure reference
-- `@<fig>{#tag}[caption](file)` : insert image
+- `@<fig>(tag)` : figure reference
+- `@<fig>{tag}[caption](file)` : insert image
+
+Do not add `#` in front of tags specified in `@<...>` commands;
+they automatically add one if necessary.
