@@ -42,7 +42,7 @@ def process_ruby(l)
   l
 end
 
-def process_line(l)
+def process_commands(l)
   if /^@@/ =~ l.line
     # reserved for line directive
     l = nil
@@ -159,7 +159,7 @@ def process_file(in_lines, pass)
     in_lines.each do |l|
       l = tag_figures(l)
       l = reference_figures(l) unless l.nil?
-      l = process_line(l) unless l.nil?
+      l = process_commands(l) unless l.nil?
       out_lines << l unless l.nil?
     end
   else
