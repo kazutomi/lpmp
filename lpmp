@@ -153,15 +153,13 @@ def section_id(matter, secno, depth)
 end
 
 def number_sections(l)
-  return l unless l.line.start_with?('#')
-  depth = nil
-  $state.secdepth.downto(1) do |i|
-    if l.line.start_with?('#'*i)
-      depth = i
-      break
-    end
+  return l unless /\A(.> )?(#+)/ =~ l.line
+  tbhead = $1 || ''
+  sharps = $2
+  depth = sharps.size - 1  # zero-origin
+  if depth >= $state.secdepth
+    depth = $state.secdepth - 1
   end
-  depth -= 1  # 0-origin
 
   $state.secno[depth] += 1
   if depth < $state.secdepth
@@ -179,7 +177,7 @@ def number_sections(l)
 end
 
 def number_figures(l)
-  l.line.scan(/^@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
+  l.line.scan(/@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
     $state.figno += 1
     $figtag[$1] = "#{$state.secno[0]}-#{$state.figno}"
   end
@@ -188,7 +186,7 @@ end
 
 def number_code_lists(l)
   case l.line
-  when /^@<list>\{([^}]*)\}/
+  when /@<list>\{([^}]*)\}/
     $state.listno += 1
     $listtag[$1] = "#{$state.secno[0]}-#{$state.listno}"
   end
@@ -212,15 +210,16 @@ def code_list_format(no)
 end
 
 def tag_figures(l)
-  if /\A@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/ =~ l.line
-    tag = $1
+  if /\A(.> )?@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/ =~ l.line
+    tbhead = $1 || ''
+    tag = $2
     figno = $figtag[tag] || 'XX'
-    caption = $2
-    file = $3
+    caption = $3
+    file = $4
     [
-      LineStream::InputLine.new("{##{tag}}", l.no),
+      LineStream::InputLine.new("#{tbhead}{##{tag}}", l.no),
       LineStream::InputLine.new(
-        "![#{figure_format(figno)}#{caption}](#{file})",
+        "#{tbhead}![#{figure_format(figno)}#{caption}](#{file})",
         l.no
       ),
     ]
@@ -231,31 +230,34 @@ end
 
 def tag_code_lists(l)
   case l.line
-  when /\A@<list>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/
-    tag = $1
+  when /\A(.> )?@<list>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/
+    tbhead = $1 || ''
+    tag = $2
     listno = $listtag[tag] || 'XX'
-    caption = $2
-    file = $3
+    caption = $3
+    file = $4
     [
-      LineStream::InputLine.new("{##{tag}}", l.no),
+      LineStream::InputLine.new("#{tbhead}{##{tag}}", l.no),
       LineStream::InputLine.new(
-        "<<[#{code_list_format(listno)}#{caption}](#{file})",
+        "#{tbhead}<<[#{code_list_format(listno)}#{caption}](#{file})",
         l.no
       ),
     ]
-  when /\A@<list>\{([^}]*)\}\[([^\]]*)\]\s*\Z/
-    tag = $1
+  when /\A(.> )?@<list>\{([^}]*)\}\[([^\]]*)\]\s*\Z/
+    tbhead = $1 || ''
+    tag = $2
     listno = $listtag[tag] || 'XX'
-    caption = $2
+    caption = $3
     [
       LineStream::InputLine.new(
-        "{id=\"#{tag}\", title=\"#{code_list_format(listno)}#{caption}\"}",
+        "#{tbhead}{id=\"#{tag}\", title=\"#{code_list_format(listno)}#{caption}\"}",
         l.no
       ),
-      LineStream::InputLine.new('~~~~~~~~', l.no),
+      LineStream::InputLine.new("#{tbhead}~~~~~~~~", l.no),
     ]
-  when /\A@<list>\s*\Z/
-    LineStream::InputLine.new('~~~~~~~~', l.no)
+  when /\A(.> )?@<list>\s*\Z/
+    tbhead = $1 || ''
+    LineStream::InputLine.new("#{tbhead}~~~~~~~~", l.no)
   else
     l
   end
@@ -317,10 +319,11 @@ def switch_verb(l)
     end
   else
     case l.line
-    when /\A~+\Z/
+    when /\A(.> )?~+\Z/
       $state.verb = l.line
-    when /\A@<list>\{[^}]+\}\[[^\]]+\]\s*\Z/
-      $state.verb = '@<list>'
+    when /\A(.> )?@<list>\{[^}]+\}\[[^\]]+\]\s*\Z/
+      tbhead = $1 || ''
+      $state.verb = "#{tbhead}@<list>"
     end
   end
   l
