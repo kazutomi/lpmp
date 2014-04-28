@@ -4,15 +4,17 @@
 case ENV['LANG']
 when /\Aja_/
   FigureFormat = "図%s　"
+  TableFormat = "表%s　"
   CodeListFormat = "リスト%s　"
 else
   FigureFormat = "Figure %s: "
+  TableFormat = "Table %s: "
   CodeListFormat = "List %s: "
 end
 
 class LpmpState
   DefaultSectionDepth = 5
-  attr_accessor :file_name, :matter, :secno, :figno, :listno, :verb
+  attr_accessor :file_name, :matter, :secno, :figno, :tblno, :listno, :verb
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
@@ -21,6 +23,7 @@ class LpmpState
     @secdepth = sec_depth
     reset_sections
     @figno = 0
+    @tblno = 0
     @listno = 0
     @verb = false
   end
@@ -94,6 +97,7 @@ end
 
 $state = nil
 $figtag = {}
+$tbltag = {}
 $listtag = {}
 $seclabel = {}
 
@@ -184,6 +188,14 @@ def number_figures(l)
   l
 end
 
+def number_tables(l)
+  l.line.scan(/@<tbl>\{([^}]*)\}\[([^\]]*)\]/) do
+    $state.tblno += 1
+    $tbltag[$1] = "#{$state.secno[0]}-#{$state.tblno}"
+  end
+  l
+end
+
 def number_code_lists(l)
   case l.line
   when /@<list>\{([^}]*)\}/
@@ -205,6 +217,10 @@ def figure_format(no)
   sprintf FigureFormat, no
 end
 
+def table_format(no)
+  sprintf TableFormat, no
+end
+
 def code_list_format(no)
   sprintf CodeListFormat, no
 end
@@ -223,6 +239,22 @@ def tag_figures(l)
         l.no
       ),
     ]
+  else
+    l
+  end
+end
+
+def tag_tables(l)
+  case l.line
+  when /\A(.> )?@<tbl>\{([^}]*)\}\[([^\]]*)\]\s*\Z/
+    tbhead = $1 || ''
+    tag = $2
+    tblno = $tbltag[tag] || 'XX'
+    caption = $3
+    l.line = "#{tbhead}{id=\"#{tag}\",title=\"#{table_format(tblno)}#{caption}\"}"
+    l
+  when /\A(.> )?@<tbl>\s*\Z/
+    nil
   else
     l
   end
@@ -274,6 +306,21 @@ def reference_figures(l)
       figno = 'XX'
     end
     figno
+  end
+  l
+end
+
+def reference_tables(l)
+  l.line.gsub!(/@<tbl>\(([^)]*)\)/) do
+    tblno = ''
+    tag = $1
+    if $tbltag.key?(tag)
+      tblno = "[#{$tbltag[tag]}](##{tag})"
+    else
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: undefined table tag #{tag}"
+      tblno = 'XX'
+    end
+    tblno
   end
   l
 end
@@ -343,6 +390,7 @@ def process_file(in_lines, pass)
           in_lines.unshift(switch_matter(in_lines.getl))
           in_lines.unshift(number_sections(in_lines.getl))
           in_lines.unshift(number_figures(in_lines.getl))
+          in_lines.unshift(number_tables(in_lines.getl))
           in_lines.unshift(label_sections(in_lines.getl))
         end
       end
@@ -358,7 +406,9 @@ def process_file(in_lines, pass)
         in_lines.unshift(switch_verb(in_lines.getl))
         unless $state.verb
           in_lines.unshift(tag_figures(in_lines.getl))
+          in_lines.unshift(tag_tables(in_lines.getl))
           in_lines.unshift(reference_figures(in_lines.getl))
+          in_lines.unshift(reference_tables(in_lines.getl))
           in_lines.unshift(reference_code_lists(in_lines.getl))
           in_lines.unshift(reference_sections(in_lines.getl))
           in_lines.unshift(process_commands(in_lines.getl))
