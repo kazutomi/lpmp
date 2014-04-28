@@ -55,6 +55,10 @@ class LineStream
     @queue.size == 0
   end
 
+  def peekl
+    @queue[0]
+  end
+
   def getl
     @queue.shift
   end
@@ -294,12 +298,15 @@ def process_file(in_lines, pass)
   case pass
   when 0  # number sections and figures
     while not in_lines.empty?
-      in_lines.unshift(number_code_lists(in_lines.getl))
-      in_lines.unshift(switch_verb(in_lines.getl))
-      unless $state.verb
-        in_lines.unshift(switch_matter(in_lines.getl))
-        in_lines.unshift(number_sections(in_lines.getl))
-        in_lines.unshift(number_figures(in_lines.getl))
+      l = in_lines.peekl
+      unless l.line.start_with?('%%')
+        in_lines.unshift(number_code_lists(in_lines.getl))
+        in_lines.unshift(switch_verb(in_lines.getl))
+        unless $state.verb
+          in_lines.unshift(switch_matter(in_lines.getl))
+          in_lines.unshift(number_sections(in_lines.getl))
+          in_lines.unshift(number_figures(in_lines.getl))
+        end
       end
       if (l = in_lines.getl)
         out_lines.putl(l)
@@ -307,13 +314,16 @@ def process_file(in_lines, pass)
     end
   when 1
     while not in_lines.empty?
-      in_lines.unshift(tag_code_lists(in_lines.getl))
-      in_lines.unshift(switch_verb(in_lines.getl))
-      unless $state.verb
-        in_lines.unshift(tag_figures(in_lines.getl))
-        in_lines.unshift(reference_figures(in_lines.getl))
-        in_lines.unshift(reference_code_lists(in_lines.getl))
-        in_lines.unshift(process_commands(in_lines.getl))
+      l = in_lines.peekl
+      unless l.line.start_with?('%%')
+        in_lines.unshift(tag_code_lists(in_lines.getl))
+        in_lines.unshift(switch_verb(in_lines.getl))
+        unless $state.verb
+          in_lines.unshift(tag_figures(in_lines.getl))
+          in_lines.unshift(reference_figures(in_lines.getl))
+          in_lines.unshift(reference_code_lists(in_lines.getl))
+          in_lines.unshift(process_commands(in_lines.getl))
+        end
       end
       if (l = in_lines.getl)
         out_lines.putl(l)
