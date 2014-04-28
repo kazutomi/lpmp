@@ -12,10 +12,13 @@ and generates corresponding .txt files.
 
 - `@<kw>{word,yomi}` : keyword to be indexed; yomi can be omitted
 - `@<ruby>{word,furigana}` : give furigana
-- `@<fig>(tag)` : figure reference
 - `@<fig>{tag}[caption](file)` : insert image
+- `@<fig>(tag)` : figure reference
+- `@<tbl>{tag}[caption]` ... `@<tbl>` : table block
+- `@<tbl>(tag)` : table reference
 - `@<list>{tag}[caption](file)` : insert code
 - `@<list>{tag}[caption]` ... `@<list>` : literal code block
+- `@<list>(tag)` : list reference
 - `@<slabel>{tag}` ... label the section
 - `@<sref>(tag)` ... reference to section
 
