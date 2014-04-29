@@ -172,7 +172,11 @@ def number_sections(l)
     end
   end
 
-  $state.figno = 0 if depth == 0
+  if depth == 0
+    $state.figno = 0
+    $state.tblno = 0
+    $state.listno = 0
+  end
 
   id = section_id($state.matter, $state.secno, depth)
 
