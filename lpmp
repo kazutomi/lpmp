@@ -226,14 +226,16 @@ def code_list_format(no)
 end
 
 def tag_figures(l)
-  if /\A(.?> )?@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/ =~ l.line
+  if /\A(.?> )?@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)(\{([^}]*)\})?\s*\Z/ =~ l.line
     tbhead = $1 || ''
     tag = $2
     figno = $figtag[tag] || 'XX'
     caption = $3
     file = $4
+    options = $6
+    options = ', ' + options if options and options != ''
     [
-      LineStream::InputLine.new("#{tbhead}{##{tag}}", l.no),
+      LineStream::InputLine.new("#{tbhead}{id=\"#{tag}\"#{options}}", l.no),
       LineStream::InputLine.new(
         "#{tbhead}![#{figure_format(figno)}#{caption}](#{file})",
         l.no
@@ -246,12 +248,14 @@ end
 
 def tag_tables(l)
   case l.line
-  when /\A(.?> )?@<tbl>\{([^}]*)\}\[([^\]]*)\]\s*\Z/
+  when /\A(.?> )?@<tbl>\{([^}]*)\}\[([^\]]*)\](\{([^}]*)\})?\s*\Z/
     tbhead = $1 || ''
     tag = $2
     tblno = $tbltag[tag] || 'XX'
     caption = $3
-    l.line = "#{tbhead}{id=\"#{tag}\",title=\"#{table_format(tblno)}#{caption}\"}"
+    options = $5
+    options = ', ' + options if options and options != ''
+    l.line = "#{tbhead}{id=\"#{tag}\", title=\"#{table_format(tblno)}#{caption}\"#{options}}"
     l
   when /\A(.?> )?@<tbl>\s*\Z/
     nil
@@ -262,27 +266,31 @@ end
 
 def tag_code_lists(l)
   case l.line
-  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)\s*\Z/
+  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)(\{([^}]*)\})?\s*\Z/
     tbhead = $1 || ''
     tag = $2
     listno = $listtag[tag] || 'XX'
     caption = $3
     file = $4
+    options = $6
+    options = ', ' + options if options and options != ''
     [
-      LineStream::InputLine.new("#{tbhead}{##{tag}}", l.no),
+      LineStream::InputLine.new("#{tbhead}{id=\"#{tag}\"#{options}}", l.no),
       LineStream::InputLine.new(
         "#{tbhead}<<[#{code_list_format(listno)}#{caption}](#{file})",
         l.no
       ),
     ]
-  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\]]*)\]\s*\Z/
+  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\]]*)\](\{([^}]*)\})?\s*\Z/
     tbhead = $1 || ''
     tag = $2
     listno = $listtag[tag] || 'XX'
     caption = $3
+    options = $5
+    options = ', ' + options if options and options != ''
     [
       LineStream::InputLine.new(
-        "#{tbhead}{id=\"#{tag}\", title=\"#{code_list_format(listno)}#{caption}\"}",
+        "#{tbhead}{id=\"#{tag}\", title=\"#{code_list_format(listno)}#{caption}\"#{options}}",
         l.no
       ),
       LineStream::InputLine.new("#{tbhead}~~~~~~~~", l.no),
