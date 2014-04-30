@@ -14,7 +14,7 @@ end
 
 class LpmpState
   DefaultSectionDepth = 5
-  attr_accessor :file_name, :matter, :secno, :figno, :tblno, :listno, :verb
+  attr_accessor :file_name, :matter, :secno, :figno, :tblno, :listno, :verb, :cmd
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
@@ -26,6 +26,7 @@ class LpmpState
     @tblno = 0
     @listno = 0
     @verb = false
+    @cmd = false
   end
 
   def reset_sections
@@ -371,18 +372,36 @@ def reference_sections(l)
   l
 end
 
-def expand_cmd(l)
-  case l.line
-  when /\A(.?> )?@<cmd>\{([^}]+)?\}\s*\Z/
-    tbhead = $1 || ''
-    opts = $2.nil? ? "lang=\"text\", linenos=off" : $2
-    [
-      LineStream::InputLine.new("#{tbhead}{#{opts}}", l.no),
-      LineStream::InputLine.new("#{tbhead}~~~~~~~~", l.no),
-    ]
-  when /\A(.?> )?@<cmd>\s*\Z/
-    tbhead = $1 || ''
-    LineStream::InputLine.new("#{tbhead}~~~~~~~~", l.no)
+def switch_cmd(l)
+  if /\A(.?> )?@<cmd>\{([^}]+)?\}\s*\Z/ =~ l.line
+    $state.cmd = $1 || ''
+    opts = $2.nil? ? "lang=\"text\", linenos=off" : $2  # XXX: not used
+    nil
+  elsif l.line.start_with?("#{$state.cmd}@<cmd>")
+    $state.cmd = false
+    nil
+  else
+    l
+  end
+end
+
+def make_code_line(s)
+  # XXX: only supports underline in a simplistic way
+  s = s.gsub('____', '`____`')
+  s = "`#{s}`"
+  '> ' + s.gsub('``', '') + '\\\\'
+end
+
+def process_cmd(l)
+  if $state.cmd
+    if l.line.start_with?($state.cmd)
+      rest = l.line.sub($state.cmd, '')
+    else
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: line must start with #{$state.cmd} within this @cmd"
+      rest = l.line
+    end
+    l.line = $state.cmd + make_code_line(rest)
+    l
   else
     l
   end
@@ -419,11 +438,16 @@ def process_file(in_lines, pass)
         in_lines.unshift(number_code_lists(in_lines.getl))
         in_lines.unshift(switch_verb(in_lines.getl))
         unless $state.verb
-          in_lines.unshift(switch_matter(in_lines.getl))
-          in_lines.unshift(number_sections(in_lines.getl))
-          in_lines.unshift(number_figures(in_lines.getl))
-          in_lines.unshift(number_tables(in_lines.getl))
-          in_lines.unshift(label_sections(in_lines.getl))
+          in_lines.unshift(switch_cmd(in_lines.getl))
+          if $state.cmd
+            in_lines.unshift(process_cmd(in_lines.getl))
+          else
+            in_lines.unshift(switch_matter(in_lines.getl))
+            in_lines.unshift(number_sections(in_lines.getl))
+            in_lines.unshift(number_figures(in_lines.getl))
+            in_lines.unshift(number_tables(in_lines.getl))
+            in_lines.unshift(label_sections(in_lines.getl))
+          end
         end
       end
       if (l = in_lines.getl)
@@ -435,7 +459,6 @@ def process_file(in_lines, pass)
       l = in_lines.peekl
       unless l.line.start_with?('%%')
         in_lines.unshift(tag_code_lists(in_lines.getl))
-        in_lines.unshift(expand_cmd(in_lines.getl))
         in_lines.unshift(switch_verb(in_lines.getl))
         unless $state.verb
           in_lines.unshift(tag_figures(in_lines.getl))
