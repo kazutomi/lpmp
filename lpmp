@@ -14,7 +14,8 @@ end
 
 class LpmpState
   DefaultSectionDepth = 5
-  attr_accessor :file_name, :matter, :secno, :figno, :tblno, :listno, :verb, :cmd
+  attr_accessor :file_name, :matter, :secno, :figno, :tblno, :listno,
+                :verb, :cmd, :last_cmd_line
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
@@ -27,6 +28,7 @@ class LpmpState
     @listno = 0
     @verb = false
     @cmd = false
+    @last_cmd_line = nil
   end
 
   def reset_sections
@@ -376,6 +378,7 @@ def switch_cmd(l)
   if /\A(.?> )?@<cmd>\{([^}]+)?\}\s*\Z/ =~ l.line
     $state.cmd = $1 || ''
     opts = $2.nil? ? "lang=\"text\", linenos=off" : $2  # XXX: not used
+    $state.last_cmd_line = nil
     nil
   elsif l.line.start_with?("#{$state.cmd}@<cmd>")
     $state.cmd = false
@@ -389,7 +392,7 @@ def make_code_line(s)
   # XXX: only supports underline in a simplistic way
   s = s.gsub('____', '`____`')
   s = "`#{s}`"
-  '> ' + s.gsub('``', '') + '\\\\'
+  '> ' + s.gsub('``', '')
 end
 
 def process_cmd(l)
@@ -401,6 +404,7 @@ def process_cmd(l)
       rest = l.line
     end
     l.line = $state.cmd + make_code_line(rest)
+    $state.last_cmd_line = l
     l
   else
     l
@@ -440,6 +444,7 @@ def process_file(in_lines, pass)
         unless $state.verb
           in_lines.unshift(switch_cmd(in_lines.getl))
           if $state.cmd
+            $state.last_cmd_line.line += '\\\\' if $state.last_cmd_line
             in_lines.unshift(process_cmd(in_lines.getl))
           else
             in_lines.unshift(switch_matter(in_lines.getl))
