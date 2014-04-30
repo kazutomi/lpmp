@@ -187,7 +187,7 @@ end
 def number_figures(l)
   l.line.scan(/@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
     $state.figno += 1
-    $figtag[$1] = "#{$state.secno[0]}-#{$state.figno}"
+    $figtag[$1] = "#{$state.secno[0]}.#{$state.figno}"
   end
   l
 end
@@ -195,7 +195,7 @@ end
 def number_tables(l)
   l.line.scan(/@<tbl>\{([^}]*)\}\[([^\]]*)\]/) do
     $state.tblno += 1
-    $tbltag[$1] = "#{$state.secno[0]}-#{$state.tblno}"
+    $tbltag[$1] = "#{$state.secno[0]}.#{$state.tblno}"
   end
   l
 end
@@ -204,7 +204,7 @@ def number_code_lists(l)
   case l.line
   when /@<list>\{([^}]*)\}/
     $state.listno += 1
-    $listtag[$1] = "#{$state.secno[0]}-#{$state.listno}"
+    $listtag[$1] = "#{$state.secno[0]}.#{$state.listno}"
   end
   l
 end
