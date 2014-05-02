@@ -1,6 +1,10 @@
 #!/usr/bin/env ruby
 # coding: utf-8
 
+require 'optparse'
+
+$show_verb = false
+
 case ENV['LANG']
 when /\Aja_/
   FigureFormat = "図%s　"
@@ -476,7 +480,9 @@ def process_file(in_lines, pass)
       unless l.line.start_with?('%%')
         in_lines.unshift(tag_code_lists(in_lines.getl))
         in_lines.unshift(switch_verb(in_lines.getl))
-        unless $state.verb
+        if $state.verb
+          puts "VERB: #{in_lines.peekl.line}" if $show_verb
+        else
           in_lines.unshift(tag_figures(in_lines.getl))
           in_lines.unshift(tag_tables(in_lines.getl))
           in_lines.unshift(reference_figures(in_lines.getl))
@@ -501,6 +507,10 @@ def process_file(in_lines, pass)
 end
 
 def main
+  opt = OptionParser.new
+  opt.on('--verb', 'Show verbatim lines for debug manuscript') { $show_verb = true }
+  opt.parse!(ARGV)
+
   $state = LpmpState.new
 
   txtfiles = []
