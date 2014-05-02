@@ -1,5 +1,4 @@
 # lpmp - Leanpub Markdown Preprocessor
---------
 
 ## Usage
 
@@ -27,7 +26,7 @@ and generates corresponding .txt files.
 - `@<sref>(tag)` ... reference to section
 
 `@<fig>{`, `@<tbl>{` and `@<list>{` can take options at end
-in `{...}` form: e.g., `@<line>{...}[...]{linenos=off}`
+in `{...}` form: e.g., `@<list>{...}[...]{linenos=off}`
 
 Do not add `#` in front of tags specified in `@<...>` commands;
 they automatically add one if necessary.
