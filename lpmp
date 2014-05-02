@@ -4,6 +4,7 @@
 require 'optparse'
 
 $show_verb = false
+$dump = false
 
 case ENV['LANG']
 when /\Aja_/
@@ -470,10 +471,13 @@ def process_file(in_lines, pass)
   when 0  # number sections and figures
     while not in_lines.empty?
       l = in_lines.peekl
+      puts "DUMP (pass 1):#{$state.file_name}:#{l.no}: #{l.line}" if $dump
       unless l.line.start_with?('%%')
         in_lines.unshift(number_code_lists(in_lines.getl))
         in_lines.unshift(switch_verb(in_lines.getl))
-        unless $state.verb
+        if $state.verb
+          puts "VERB (pass 1):#{$state.file_name}:#{in_lines.peekl.no}: #{in_lines.peekl.line}" if $show_verb
+        else
           in_lines.unshift(switch_cmd(in_lines.getl))
           if $state.cmd
             if $state.cmd_skip > 0
@@ -498,11 +502,12 @@ def process_file(in_lines, pass)
   when 1
     while not in_lines.empty?
       l = in_lines.peekl
+      puts "DUMP (pass 2):#{$state.file_name}:#{l.no}: #{l.line}" if $dump
       unless l.line.start_with?('%%')
         in_lines.unshift(tag_code_lists(in_lines.getl))
         in_lines.unshift(switch_verb(in_lines.getl))
         if $state.verb
-          puts "VERB: #{in_lines.peekl.line}" if $show_verb
+          puts "VERB (pass 2):#{$state.file_name}:#{in_lines.peekl.no}: #{in_lines.peekl.line}" if $show_verb
         else
           in_lines.unshift(tag_figures(in_lines.getl))
           in_lines.unshift(tag_tables(in_lines.getl))
@@ -535,6 +540,7 @@ end
 def main
   opt = OptionParser.new
   opt.on('--verb', 'Show verbatim lines for debug manuscript') { $show_verb = true }
+  opt.on('--dump', 'Dump all lines under processing') { $dump = true }
   opt.parse!(ARGV)
 
   $state = LpmpState.new

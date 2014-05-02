@@ -3,10 +3,13 @@
 
 ## Usage
 
-    $ lpmp
+    $ lpmp [--verb] [--dump]
 
 The command reads Book.txt and *.lmp files
 and generates corresponding .txt files.
+
+* `--verb`: display verbatim lines for debug
+* `--dump`: display all lines under processing
 
 ## Commands available in .lmp files
 
