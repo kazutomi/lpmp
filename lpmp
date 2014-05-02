@@ -196,7 +196,11 @@ end
 def number_figures(l)
   l.line.scan(/@<fig>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\]\(([^)]*)\)/) do
     $state.figno += 1
-    $figtag[$1] = "#{$state.secno[0]}.#{$state.figno}"
+    if $figtag.key?($1)
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: duplicate figure tag #{$1}"
+    else
+      $figtag[$1] = "#{$state.secno[0]}.#{$state.figno}"
+    end
   end
   l
 end
@@ -204,7 +208,11 @@ end
 def number_tables(l)
   l.line.scan(/@<tbl>\{([^}]*)\}\[([^\]]*)\]/) do
     $state.tblno += 1
-    $tbltag[$1] = "#{$state.secno[0]}.#{$state.tblno}"
+    if $tbltag.key?($1)
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: duplicate table tag #{$1}"
+    else
+      $tbltag[$1] = "#{$state.secno[0]}.#{$state.tblno}"
+    end
   end
   l
 end
@@ -213,14 +221,22 @@ def number_code_lists(l)
   case l.line
   when /@<list>\{([^}]*)\}/
     $state.listno += 1
-    $listtag[$1] = "#{$state.secno[0]}.#{$state.listno}"
+    if $listtag.key?($1)
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: duplicate list tag #{$1}"
+    else
+      $listtag[$1] = "#{$state.secno[0]}.#{$state.listno}"
+    end
   end
   l
 end
 
 def label_sections(l)
   l.line.gsub!(/@<slabel>\{([^}]*)\}/) do
-    $seclabel[$1] = [$state.matter, $state.secno.join(' '), $state.secdepth]
+    if $seclabel.key?($1)
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: duplicate section label #{$1}"
+    else
+      $seclabel[$1] = [$state.matter, $state.secno.join(' '), $state.secdepth]
+    end
     ''
   end
   l
