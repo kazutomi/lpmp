@@ -5,12 +5,17 @@
     $ lpmp [--verb] [--dump]
 
 The command reads Book.txt and *.lmp files
-and generates corresponding .txt files.
+and generates corresponding .txt or .md files.
+If Book.txt has a '01.txt' (or '01.md') entry,
+provide 01.lmp and run lpmp to produce 01.txt (or 01.md).
 
 * `--verb`: display verbatim lines for debug
 * `--dump`: display all lines under processing
 
 ## Commands available in .lmp files
+
+In addition to the Leanpub Markdown syntax, the following commands
+are available in .lmp files.
 
 - `@<kw>{word,yomi}` : keyword to be indexed; yomi can be omitted
 - `@<ruby>{word,furigana}` : give furigana
