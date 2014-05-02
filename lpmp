@@ -19,7 +19,7 @@ end
 class LpmpState
   DefaultSectionDepth = 5
   attr_accessor :file_name, :matter, :secno, :figno, :tblno, :listno,
-                :verb, :cmd, :last_cmd_line, :cmd_skip
+                :verb, :verb_startline, :cmd, :last_cmd_line, :cmd_skip
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
@@ -31,6 +31,7 @@ class LpmpState
     @tblno = 0
     @listno = 0
     @verb = false
+    @verb_startline = nil
     @cmd = false
     @last_cmd_line = nil
     @cmd_skip = 0
@@ -426,17 +427,21 @@ def switch_verb(l)
   if $state.verb
     if $state.verb == l.line
       $state.verb = false
+      $state.verb_startline = nil
     end
   else
     case l.line
     when /\A(.?> )?~+\Z/
       $state.verb = l.line
+      $state.verb_startline = l.no
     when /\A(.?> )?@<list>\{[^}]+\}\[[^\]]+\]\s*\Z/
       tbhead = $1 || ''
       $state.verb = "#{tbhead}@<list>"
+      $state.verb_startline = l.no
     when /\A(.?> )?@<cmd>\{[^}]+\}\s*\Z/
       tbhead = $1 || ''
       $state.verb = "#{tbhead}@<cmd>"
+      $state.verb_startline = l.no
     end
   end
   l
@@ -501,7 +506,12 @@ def process_file(in_lines, pass)
     out_lines = in_lines
   end
 
-  $stderr.puts "#{$state.file_name}: warning: ends in verbatim mode" if $state.verb
+  if $state.verb and pass == 0
+    $stderr.puts "#{$state.file_name}: warning: ends in verbatim mode (started at line #{$state.verb_startline}); expected \"#{$state.verb}\" not found"
+    # force reset to normal mode
+    $state.verb = false
+    $state.verb_startline = nil
+  end
 
   out_lines
 end
