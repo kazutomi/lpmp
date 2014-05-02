@@ -483,6 +483,10 @@ def process_file(in_lines, pass)
             if $state.cmd_skip > 0
               $state.cmd_skip -= 1
             else
+              l = in_lines.peekl
+              if /@<\w+>/ =~ l.line
+                $stderr.puts "#{$state.file_name}:#{l.no}: warning: @<...> command ineffective in @<cmd> block"
+              end
               $state.last_cmd_line.line += '\\\\' if $state.last_cmd_line
               in_lines.unshift(process_cmd(in_lines.getl))
             end
