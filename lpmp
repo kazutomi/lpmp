@@ -15,7 +15,7 @@ end
 class LpmpState
   DefaultSectionDepth = 5
   attr_accessor :file_name, :matter, :secno, :figno, :tblno, :listno,
-                :verb, :cmd, :last_cmd_line
+                :verb, :cmd, :last_cmd_line, :cmd_skip
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
@@ -29,6 +29,7 @@ class LpmpState
     @verb = false
     @cmd = false
     @last_cmd_line = nil
+    @cmd_skip = 0
   end
 
   def reset_sections
@@ -377,9 +378,15 @@ end
 def switch_cmd(l)
   if /\A(.?> )?@<cmd>\{([^}]+)?\}\s*\Z/ =~ l.line
     $state.cmd = $1 || ''
-    opts = $2.nil? ? "lang=\"text\", linenos=off" : $2  # XXX: not used
     $state.last_cmd_line = nil
-    nil
+    if $2.nil?
+      $state.cmd_skip = 0
+      nil
+    else
+      l.line = "{#{$state.cmd}#{$2}}"
+      $state.cmd_skip = 1  # to skip this header
+      l
+    end
   elsif l.line.start_with?("#{$state.cmd}@<cmd>")
     $state.cmd = false
     nil
@@ -444,8 +451,12 @@ def process_file(in_lines, pass)
         unless $state.verb
           in_lines.unshift(switch_cmd(in_lines.getl))
           if $state.cmd
-            $state.last_cmd_line.line += '\\\\' if $state.last_cmd_line
-            in_lines.unshift(process_cmd(in_lines.getl))
+            if $state.cmd_skip > 0
+              $state.cmd_skip -= 1
+            else
+              $state.last_cmd_line.line += '\\\\' if $state.last_cmd_line
+              in_lines.unshift(process_cmd(in_lines.getl))
+            end
           else
             in_lines.unshift(switch_matter(in_lines.getl))
             in_lines.unshift(number_sections(in_lines.getl))
