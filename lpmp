@@ -523,21 +523,21 @@ def main
 
   $state = LpmpState.new
 
-  txtfiles = []
+  mdfiles = []
   open('Book.txt') do |f|
     f.each_line do |l|
-      txtfiles << l.chomp
+      mdfiles << l.chomp
     end
   end
 
   lmpfiles = []
   files_lines = []
-  txtfiles.each do |txtf|
-    if File.extname(txtf) != '.txt'
-      $stderr.puts "Book.txt entry \"#{txtf}\" is not .txt; skipping"
+  mdfiles.each do |mdf|
+    if File.extname(mdf) != '.md' and File.extname(mdf) != '.txt'
+      $stderr.puts "Book.txt entry \"#{mdf}\" is neither .md nor .txt; skipping"
       next
     end
-    lmpf = txtf.sub(/\.txt$/, '.lmp')
+    lmpf = mdf.sub(/\.(md|txt)$/, '.lmp')
     lmpfiles << lmpf
     $state.file_name = lmpf
     lines = nil
@@ -555,8 +555,8 @@ def main
     end
   end
 
-  [txtfiles, files_lines].transpose.each do |txtf, lines|
-    open(txtf, 'w') do |f|
+  [mdfiles, files_lines].transpose.each do |mdf, lines|
+    open(mdf, 'w') do |f|
       lines.each do |l|
         f.puts l.line
       end
