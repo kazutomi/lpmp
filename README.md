@@ -12,7 +12,7 @@ and generates corresponding .txt files.
 
 - `@<kw>{word,yomi}` : keyword to be indexed; yomi can be omitted
 - `@<ruby>{word,furigana}` : give furigana
-- `@<fig>{tag}[caption](file)` : insert image
+- `@<fig>{tag}[caption](file)` : insert image; caption can include [...] to one level
 - `@<fig>(tag)` : figure reference
 - `@<tbl>{tag}[caption]` ... `@<tbl>` : table block
 - `@<tbl>(tag)` : table reference

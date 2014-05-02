@@ -189,7 +189,7 @@ def number_sections(l)
 end
 
 def number_figures(l)
-  l.line.scan(/@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)/) do
+  l.line.scan(/@<fig>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\]\(([^)]*)\)/) do
     $state.figno += 1
     $figtag[$1] = "#{$state.secno[0]}.#{$state.figno}"
   end
@@ -234,13 +234,13 @@ def code_list_format(no)
 end
 
 def tag_figures(l)
-  if /\A(.?> )?@<fig>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)(\{([^}]*)\})?\s*\Z/ =~ l.line
+  if /\A(.?> )?@<fig>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\]\(([^)]*)\)(\{([^}]*)\})?\s*\Z/ =~ l.line
     tbhead = $1 || ''
     tag = $2
     figno = $figtag[tag] || 'XX'
     caption = $3
-    file = $4
-    options = $6
+    file = $5
+    options = $7
     options = ', ' + options if options and options != ''
     [
       LineStream::InputLine.new("#{tbhead}{id=\"#{tag}\"#{options}}", l.no),
