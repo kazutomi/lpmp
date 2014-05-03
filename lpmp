@@ -209,7 +209,7 @@ def number_figures(l)
 end
 
 def number_tables(l)
-  l.line.scan(/@<tbl>\{([^}]*)\}\[([^\]]*)\]/) do
+  l.line.scan(/@<tbl>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\]/) do
     $state.tblno += 1
     if $tbltag.key?($1)
       $stderr.puts "#{$state.file_name}:#{l.no}: warning: duplicate table tag #{$1}"
@@ -280,12 +280,12 @@ end
 
 def tag_tables(l)
   case l.line
-  when /\A(.?> )?@<tbl>\{([^}]*)\}\[([^\]]*)\](\{([^}]*)\})?\s*\Z/
+  when /\A(.?> )?@<tbl>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\](\{([^}]*)\})?\s*\Z/
     tbhead = $1 || ''
     tag = $2
     tblno = $tbltag[tag] || 'XX'
     caption = $3
-    options = $5
+    options = $6
     options = ', ' + options if options and options != ''
     l.line = "#{tbhead}{id=\"#{tag}\", title=\"#{table_format(tblno)}#{caption}\"#{options}}"
     l
