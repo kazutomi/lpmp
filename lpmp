@@ -197,7 +197,7 @@ def number_sections(l)
 end
 
 def number_figures(l)
-  l.line.scan(/@<fig>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\]\(([^)]*)\)/) do
+  l.line.scan(/@<fig>\{([^}]*)\}\[(([^\[]*\[[^\]]*\])*[^\]]*)\]\(([^)]*)\)/) do
     $state.figno += 1
     if $figtag.key?($1)
       $stderr.puts "#{$state.file_name}:#{l.no}: warning: duplicate figure tag #{$1}"
@@ -209,7 +209,7 @@ def number_figures(l)
 end
 
 def number_tables(l)
-  l.line.scan(/@<tbl>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\]/) do
+  l.line.scan(/@<tbl>\{([^}]*)\}\[(([^\[]*\[[^\]]*\])*[^\]]*)\]/) do
     $state.tblno += 1
     if $tbltag.key?($1)
       $stderr.puts "#{$state.file_name}:#{l.no}: warning: duplicate table tag #{$1}"
@@ -258,7 +258,7 @@ def code_list_format(no)
 end
 
 def tag_figures(l)
-  if /\A(.?> )?@<fig>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\]\(([^)]*)\)(\{([^}]*)\})?\s*\Z/ =~ l.line
+  if /\A(.?> )?@<fig>\{([^}]*)\}\[(([^\[]*\[[^\]]*\])*[^\]]*)\]\(([^)]*)\)(\{([^}]*)\})?\s*\Z/ =~ l.line
     tbhead = $1 || ''
     tag = $2
     figno = $figtag[tag] || 'XX'
@@ -280,7 +280,7 @@ end
 
 def tag_tables(l)
   case l.line
-  when /\A(.?> )?@<tbl>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\](\{([^}]*)\})?\s*\Z/
+  when /\A(.?> )?@<tbl>\{([^}]*)\}\[(([^\[]*\[[^\]]*\])*[^\]]*)\](\{([^}]*)\})?\s*\Z/
     tbhead = $1 || ''
     tag = $2
     tblno = $tbltag[tag] || 'XX'
@@ -298,7 +298,7 @@ end
 
 def tag_code_lists(l)
   case l.line
-  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\]\(([^)]*)\)(\{([^}]*)\})?\s*\Z/
+  when /\A(.?> )?@<list>\{([^}]*)\}\[(([^\[]*\[[^\]]*\])*[^\]]*)\]\(([^)]*)\)(\{([^}]*)\})?\s*\Z/
     tbhead = $1 || ''
     tag = $2
     listno = $listtag[tag] || 'XX'
@@ -313,7 +313,7 @@ def tag_code_lists(l)
         l.no
       ),
     ]
-  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\](\{([^}]*)\})?\s*\Z/
+  when /\A(.?> )?@<list>\{([^}]*)\}\[(([^\[]*\[[^\]]*\])*[^\]]*)\](\{([^}]*)\})?\s*\Z/
     tbhead = $1 || ''
     tag = $2
     listno = $listtag[tag] || 'XX'
