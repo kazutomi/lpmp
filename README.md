@@ -19,7 +19,7 @@ are available in .lmp files.
 
 - `@<kw>{word,yomi}` : keyword to be indexed; yomi can be omitted
 - `@<ruby>{word,furigana}` : give furigana
-- `@<fig>{tag}[caption](file)` : insert image; caption can include [...] to one level
+- `@<fig>{tag}[caption](file)` : insert image
 - `@<fig>(tag)` : figure reference
 - `@<tbl>{tag}[caption]` ... `@<tbl>` : table block
 - `@<tbl>(tag)` : table reference
@@ -29,6 +29,8 @@ are available in .lmp files.
 - `@<cmd>{option}` ... `@<cmd>` : command-line session
 - `@<slabel>{tag}` ... label the section
 - `@<sref>(tag)` ... reference to section
+
+Captions can include `[...]` to one level (nested ones not allowed).
 
 `@<fig>{`, `@<tbl>{` and `@<list>{` can take options at end
 in `{...}` form: e.g., `@<list>{...}[...]{linenos=off}`
