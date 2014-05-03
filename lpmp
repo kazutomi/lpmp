@@ -298,13 +298,13 @@ end
 
 def tag_code_lists(l)
   case l.line
-  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\]]*)\]\(([^)]*)\)(\{([^}]*)\})?\s*\Z/
+  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\]\(([^)]*)\)(\{([^}]*)\})?\s*\Z/
     tbhead = $1 || ''
     tag = $2
     listno = $listtag[tag] || 'XX'
     caption = $3
-    file = $4
-    options = $6
+    file = $5
+    options = $7
     options = ', ' + options if options and options != ''
     [
       LineStream::InputLine.new("#{tbhead}{id=\"#{tag}\"#{options}}", l.no),
@@ -313,12 +313,12 @@ def tag_code_lists(l)
         l.no
       ),
     ]
-  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\]]*)\](\{([^}]*)\})?\s*\Z/
+  when /\A(.?> )?@<list>\{([^}]*)\}\[([^\[]*(\[[^\]]*\])*[^\]]*)\](\{([^}]*)\})?\s*\Z/
     tbhead = $1 || ''
     tag = $2
     listno = $listtag[tag] || 'XX'
     caption = $3
-    options = $5
+    options = $6
     options = ', ' + options if options and options != ''
     [
       LineStream::InputLine.new(
@@ -454,7 +454,7 @@ def switch_verb(l)
     when /\A(.?> )?~+\Z/
       $state.verb = l.line
       $state.verb_startline = l.no
-    when /\A(.?> )?@<list>\{[^}]+\}\[[^\]]+\]\s*\Z/
+    when /\A(.?> )?@<list>\{[^}]+\}\[.*\]\s*\Z/
       tbhead = $1 || ''
       $state.verb = "#{tbhead}@<list>"
       $state.verb_startline = l.no
