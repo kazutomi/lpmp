@@ -463,10 +463,6 @@ def switch_verb(l)
       tbhead = $1 || ''
       $state.verb = "#{tbhead}@<list>"
       $state.verb_startline = l.no
-    when /\A(.?> )?@<cmd>\{[^}]+\}\s*\Z/
-      tbhead = $1 || ''
-      $state.verb = "#{tbhead}@<cmd>"
-      $state.verb_startline = l.no
     end
   end
   l
