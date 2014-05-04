@@ -21,7 +21,7 @@ class LpmpState
   DefaultSectionDepth = 5
   attr_accessor :file_name, :matter, :secno, :figno, :tblno, :listno,
                 :verb, :verb_startline, :cmd, :last_cmd_line, :cmd_skip,
-                :cmd_startline
+                :cmd_startline, :bibno
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
@@ -38,6 +38,7 @@ class LpmpState
     @last_cmd_line = nil
     @cmd_skip = 0
     @cmd_startline = nil
+    @bibno = 0
   end
 
   def reset_sections
@@ -112,6 +113,7 @@ $figtag = {}
 $tbltag = {}
 $listtag = {}
 $seclabel = {}
+$bibmap = {}
 
 NPass = 2  # two-pass processing
 
@@ -245,6 +247,19 @@ def label_sections(l)
   l
 end
 
+def number_bibitems(l)
+  case l.line
+  when /@<bib>\{([^}]*)\}/
+    if $bibmap.key?($1)
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: duplicate bibliography item tag #{$1}"
+    else
+      $state.bibno += 1
+      $bibmap[$1] = $state.bibno
+    end
+  end
+  l
+end
+
 def figure_format(no)
   sprintf FigureFormat, no
 end
@@ -296,6 +311,29 @@ def tag_tables(l)
     l
   when /\A(.?> )?@<tbl>\s*\Z/
     nil
+  else
+    l
+  end
+end
+
+def tag_bibitems(l)
+  case l.line
+  when /\A(.?> )?@<bib>\{([^}]*)\}\s*\Z/
+    tbhead = $1 || ''
+    tag = $2
+    if $bibmap.key?(tag)
+      bibno = $bibmap[tag]
+    else
+      $stderr.puts "#{$state.file_name}:#{l.no}: logic error: bibliography item tag \"#{tag}\" not found in map"
+      bibno = 'XX'
+    end
+    [
+      LineStream::InputLine.new("{#bib-#{tag}}", l.no),
+      LineStream::InputLine.new("**\[#{bibno}\]**", l.no),
+    ]
+  when /\A(.?> )?@<bib>\s*\Z/
+    l.line = ''  # to ensure paragraph end
+    l
   else
     l
   end
@@ -404,6 +442,21 @@ def reference_sections(l)
   l
 end
 
+def reference_bibitems(l)
+  l.line.gsub!(/@<bib>\(([^)]*)\)/) do
+    bibcite = ''
+    tag = $1
+    if $bibmap.key?(tag)
+      bibcite = "[\\[#{$bibmap[tag]}\\]](#bib-#{tag})"
+    else
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: undefined bibliography item tag #{tag}"
+      bibcite = '\[XX\]'
+    end
+    bibcite
+  end
+  l
+end
+
 def switch_cmd(l)
   if /\A(.?> )?@<cmd>\{([^}]+)?\}\s*\Z/ =~ l.line
     $state.cmd = $1 || ''
@@ -500,6 +553,7 @@ def process_file(in_lines, pass)
             in_lines.unshift(number_figures(in_lines.getl))
             in_lines.unshift(number_tables(in_lines.getl))
             in_lines.unshift(label_sections(in_lines.getl))
+            in_lines.unshift(number_bibitems(in_lines.getl))
           end
         end
       end
@@ -519,11 +573,13 @@ def process_file(in_lines, pass)
         else
           in_lines.unshift(tag_figures(in_lines.getl))
           in_lines.unshift(tag_tables(in_lines.getl))
+          in_lines.unshift(tag_bibitems(in_lines.getl))
           in_lines.unshift(reference_figures(in_lines.getl))
           in_lines.unshift(reference_tables(in_lines.getl))
           in_lines.unshift(reference_code_lists(in_lines.getl))
           in_lines.unshift(reference_sections(in_lines.getl))
           in_lines.unshift(process_commands(in_lines.getl))
+          in_lines.unshift(reference_bibitems(in_lines.getl))
         end
       end
       if (l = in_lines.getl)
