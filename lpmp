@@ -265,6 +265,11 @@ def tag_figures(l)
     caption = $3
     file = $5
     options = $7
+
+    unless File.file?(file)
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: figure file #{file} does not exist"
+    end
+
     options = ', ' + options if options and options != ''
     [
       LineStream::InputLine.new("#{tbhead}{id=\"#{tag}\"#{options}}", l.no),
