@@ -528,7 +528,7 @@ def process_file(in_lines, pass)
       end
       if (l = in_lines.getl)
         out_lines.putl(l)
-        if /@<\w+>/ =~ l.line
+        if !l.line.start_with?('%%') and /@<\w+>/ =~ l.line
           $stderr.puts "#{$state.file_name}:#{l.no}: warning: unprocessed tag #{$&} remains"
         end
       end
