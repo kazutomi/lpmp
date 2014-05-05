@@ -480,9 +480,9 @@ end
 
 def make_code_line(s)
   # XXX: only supports underline in a simplistic way
-  s = s.gsub('____', '`____`')
-  s = "`#{s}`"
-  '> ' + s.gsub('``', '')
+  '> ' + s.split('____', -1).map do |e|
+    e.gsub(/[[:ascii:]]+/) {|t| "`#{t}`"}  # do not backquote non-ascii chars
+  end.join('____')
 end
 
 def process_cmd(l)
