@@ -119,6 +119,16 @@ class Index
     end
   end
 
+  class GatheredIndexEntry
+    attr_accessor :kw, :yomi, :secs
+
+    def initialize(kw, yomi, secs = [])
+      @kw = kw
+      @yomi = yomi
+      @secs = secs
+    end
+  end
+
   attr_accessor :list  # of IndexEntry
 
   def initialize
@@ -127,6 +137,37 @@ class Index
 
   def put(sec, kw, yomi = nil)
     @list << IndexEntry.new(sec, kw, yomi)
+  end
+
+  def generate(lineno)
+    gies = []  # of GatheredIndexEntry
+    ies = @list.sort {|e1,e2| e1.yomi <=> e2.yomi}
+
+    # gather by uniq'ing
+    ies.each do |ie|
+      if gies.size == 0
+        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [ie.sec])
+      elsif gies[-1].kw == ie.kw and gies[-1].yomi == ie.yomi
+        gies[-1].secs << ie.sec
+      else
+        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [ie.sec])
+      end
+    end
+
+    # uniq section numbers
+    gies.each do |gie|
+      gie.secs = gie.secs.sort.uniq
+    end
+
+    # generate index entry
+    gies.map do |gie|
+      secnames = gie.secs.map {|s| secid_to_secname(s) }.join(", ")
+      [
+        LineStream::InputLine.new("**#{gie.kw}**", lineno),
+        LineStream::InputLine.new(": #{secnames}", lineno),
+        LineStream::InputLine.new("", lineno),
+      ]
+    end.flatten
   end
 end
 
@@ -198,17 +239,52 @@ end
 def section_id(matter, secno, depth)
   s = case matter
       when :front
-        'front'
+        'Afront'
       when :main
-        'section'
+        'Bsection'
       when :back
-        'back'
+        'Cback'
       end
   for i in 0..depth do
     break if secno[i] == 0
     s += "-#{secno[i]}"
   end
   s
+end
+
+def romanize(n)
+  h = {
+    1 => 'i', 2 => 'ii', 3 => 'iii', 4 => 'iv', 5 => 'v',
+    6 => 'vi', 7 => 'vii', 8 => 'viii', 9 => 'ix', 10 => 'x',
+    20 => 'xx', 30 => 'xxx', 40 => 'xl', 50 => 'l',
+  }
+  a = h.to_a.sort{|x,y| y[0] <=> x[0]}.map{|a| a[0]}
+  s = ''
+  loop do
+    a.each do |m|
+      if n >= m
+        n -= m
+        s += h[m]
+      end
+    end
+    break if n == 0
+  end
+  s
+end
+
+def secid_to_secname(secid)
+  a = secid.split('-')
+  case a[0]
+  when 'Afront'
+    a[1..-1].map{|n| romanize(n.to_i)}.join('.')
+  when 'Bsection'
+    a[1..-1].join('.')
+  when 'Cback'
+    a[1..-1].map{|n| romanize(n.to_i).upcase}.join('.')
+  else
+    $stderr.puts "Unknown section ID #{secid}"
+    'XX'
+  end
 end
 
 def number_sections(l)
@@ -500,8 +576,7 @@ end
 
 def generate_index(l)  # Pass 2
   if /\A@<index>\{\}\s*\Z/ =~ l.line
-    l.line = "*Index Here*"
-    l
+    $index.generate(l.no)
   else
     l
   end
@@ -700,7 +775,6 @@ def main
       $state.file_name = lmpfiles[i]
       files_lines[i] = process_file(files_lines[i], npass)
     end
-    p $index
   end
 
   [mdfiles, files_lines].transpose.each do |mdf, lines|
