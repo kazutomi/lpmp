@@ -113,6 +113,20 @@ class Index
   class IndexEntry
     attr_accessor :sec, :kw, :yomi
 
+    ChouonMap = {}
+    [
+      ["あ", "ぁあかさたなはまやらわがざだばぱゃゎ"],
+      ["い", "ぃいきしちにひみいりゐぎじぢびぴ"],
+      ["う", "ぅうくすつぬふむゆるうぐずづぶぷゅヴっ"],
+      ["え", "ぇえけせてねへめえれゑげぜでべぺ"],
+      ["お", "ぉおこそとのほもよろをごぞどぼぽょ"],
+      ["ん", "ん"],
+    ].each do |a|
+      a[1].scan(/./) do |kana|
+        ChouonMap[kana] = a[0]
+      end
+    end
+
     def initialize(sec, kw, yomi = nil)
       @sec = sec
       @kw = kw
@@ -121,7 +135,13 @@ class Index
 
   private
     def canon_yomi(yomi)
-      yomi.tr('ァ-ン', 'ぁ-ん')
+      s = yomi.tr('ァ-ン', 'ぁ-ん')
+      s.gsub!(/([^ー])ー+/) do
+        pre = $1
+        repl = ChouonMap[pre] || 'ー'  # revert if not in ChouonMap
+        "#{pre}#{repl}"
+      end
+      s
     end
   end
 
