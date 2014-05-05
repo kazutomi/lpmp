@@ -27,8 +27,10 @@ are available in .lmp files.
 - `@<list>{tag}[caption]` ... `@<list>` : literal code block
 - `@<list>(tag)` : list reference
 - `@<cmd>{option}` ... `@<cmd>` : command-line session
-- `@<slabel>{tag}` ... label the section
-- `@<sref>(tag)` ... reference to section
+- `@<slabel>{tag}` : label the section
+- `@<sref>(tag)` : reference to section
+- `@<bib>{tag}` ... `@<bib>` : bibliography item
+- `@<bib>(tag)` : reference to bib item
 
 Captions can include `[...]` to one level (nested ones not allowed).
 
