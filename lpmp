@@ -108,17 +108,50 @@ class LineStream
   end
 end
 
+class Index
+  class IndexEntry
+    attr_accessor :sec, :kw, :yomi
+
+    def initialize(sec, kw, yomi = nil)
+      @sec = sec
+      @kw = kw
+      @yomi = yomi
+    end
+  end
+
+  attr_accessor :list  # of IndexEntry
+
+  def initialize
+    @list = []
+  end
+
+  def put(sec, kw, yomi = nil)
+    @list << IndexEntry.new(sec, kw, yomi)
+  end
+end
+
 $state = nil
 $figtag = {}
 $tbltag = {}
 $listtag = {}
 $seclabel = {}
 $bibmap = {}
+$index = Index.new
 
 NPass = 2  # two-pass processing
 
-def process_kw(l)
-  l.line.gsub!(/@<kw>{([^,}]+)(,[^}]+)?}/){"**#{$1}**"}  # ignore yomi for now
+def collect_kw(l)  # Pass 1
+  l.line.scan(/@<kw>{([^,}]+)(,([^}]+))?}/) do
+    kw = $1
+    yomi = $3
+    sec = section_id($state.matter, $state.secno, $state.secdepth)
+    $index.put(sec, kw, yomi.nil? ? kw : yomi)
+  end
+  l
+end
+
+def process_kw(l)  # Pass 2
+  l.line.gsub!(/@<kw>{([^,}]+)(,([^}]+))?}/) {"**#{$1}**"}
   l
 end
 
@@ -127,7 +160,15 @@ def process_ruby(l)
   l
 end
 
-def process_commands(l)
+def scan_commands(l)
+  if /^@@/ =~ l.line
+    # reserved for line directive
+  else
+    l = collect_kw(l)
+  end
+end
+
+def replace_commands(l)  # Pass 2
   if /^@@/ =~ l.line
     # reserved for line directive
     l = nil
@@ -554,6 +595,7 @@ def process_file(in_lines, pass)
             in_lines.unshift(number_tables(in_lines.getl))
             in_lines.unshift(label_sections(in_lines.getl))
             in_lines.unshift(number_bibitems(in_lines.getl))
+            in_lines.unshift(scan_commands(in_lines.getl))
           end
         end
       end
@@ -578,7 +620,7 @@ def process_file(in_lines, pass)
           in_lines.unshift(reference_tables(in_lines.getl))
           in_lines.unshift(reference_code_lists(in_lines.getl))
           in_lines.unshift(reference_sections(in_lines.getl))
-          in_lines.unshift(process_commands(in_lines.getl))
+          in_lines.unshift(replace_commands(in_lines.getl))
           in_lines.unshift(reference_bibitems(in_lines.getl))
         end
       end
@@ -648,6 +690,7 @@ def main
       $state.file_name = lmpfiles[i]
       files_lines[i] = process_file(files_lines[i], npass)
     end
+    p $index
   end
 
   [mdfiles, files_lines].transpose.each do |mdf, lines|
