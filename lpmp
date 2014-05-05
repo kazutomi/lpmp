@@ -167,7 +167,15 @@ class Index
 
   def generate(lineno)
     gies = []  # of GatheredIndexEntry
-    ies = @list.sort {|e1,e2| e1.yomi <=> e2.yomi}
+    ies = @list.sort do |e1,e2|
+      yomidiff = e1.yomi <=> e2.yomi
+      kwdiff = e1.kw <=> e2.kw
+      if yomidiff != 0
+        yomidiff
+      else
+        kwdiff
+      end
+    end
 
     # gather by uniq'ing
     ies.each do |ie|
