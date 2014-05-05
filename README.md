@@ -18,6 +18,7 @@ In addition to the Leanpub Markdown syntax, the following commands
 are available in .lmp files.
 
 - `@<kw>{word,yomi}` : keyword to be indexed; yomi can be omitted
+- `@<index>{}` : generates index
 - `@<ruby>{word,furigana}` : give furigana
 - `@<fig>{tag}[caption](file)` : insert image
 - `@<fig>(tag)` : figure reference
