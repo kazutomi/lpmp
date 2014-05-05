@@ -210,7 +210,7 @@ $index = Index.new
 NPass = 2  # two-pass processing
 
 def collect_index(l)  # Pass 1
-  l.line.scan(/@<(kw|idx)>{([^,}]+)(,([^}]+))?}/) do
+  l.line.scan(/@<(kw|h?idx)>{([^,}]+)(,([^}]+))?}/) do
     kw = $2
     yomi = $4
     sec = section_id($state.matter, $state.secno, $state.secdepth)
@@ -226,6 +226,7 @@ end
 
 def process_idx(l)  # Pass 2
   l.line.gsub!(/@<idx>{([^,}]+)(,([^}]+))?}/) { $1 }
+  l.line.gsub!(/@<hidx>{[^}]*}/, '')
   l
 end
 
