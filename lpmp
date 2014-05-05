@@ -498,6 +498,15 @@ def reference_bibitems(l)
   l
 end
 
+def generate_index(l)  # Pass 2
+  if /\A@<index>\{\}\s*\Z/ =~ l.line
+    l.line = "*Index Here*"
+    l
+  else
+    l
+  end
+end
+
 def switch_cmd(l)
   if /\A(.?> )?@<cmd>\{([^}]+)?\}\s*\Z/ =~ l.line
     $state.cmd = $1 || ''
@@ -622,6 +631,7 @@ def process_file(in_lines, pass)
           in_lines.unshift(reference_sections(in_lines.getl))
           in_lines.unshift(replace_commands(in_lines.getl))
           in_lines.unshift(reference_bibitems(in_lines.getl))
+          in_lines.unshift(generate_index(in_lines.getl))
         end
       end
       if (l = in_lines.getl)
