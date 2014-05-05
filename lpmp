@@ -184,10 +184,10 @@ $index = Index.new
 
 NPass = 2  # two-pass processing
 
-def collect_kw(l)  # Pass 1
-  l.line.scan(/@<kw>{([^,}]+)(,([^}]+))?}/) do
-    kw = $1
-    yomi = $3
+def collect_index(l)  # Pass 1
+  l.line.scan(/@<(kw|idx)>{([^,}]+)(,([^}]+))?}/) do
+    kw = $2
+    yomi = $4
     sec = section_id($state.matter, $state.secno, $state.secdepth)
     $index.put(sec, kw, yomi.nil? ? kw : yomi)
   end
@@ -196,6 +196,11 @@ end
 
 def process_kw(l)  # Pass 2
   l.line.gsub!(/@<kw>{([^,}]+)(,([^}]+))?}/) {"**#{$1}**"}
+  l
+end
+
+def process_idx(l)  # Pass 2
+  l.line.gsub!(/@<idx>{([^,}]+)(,([^}]+))?}/) { $1 }
   l
 end
 
@@ -208,7 +213,7 @@ def scan_commands(l)
   if /^@@/ =~ l.line
     # reserved for line directive
   else
-    l = collect_kw(l)
+    l = collect_index(l)
   end
 end
 
@@ -218,6 +223,7 @@ def replace_commands(l)  # Pass 2
     l = nil
   else
     l = process_kw(l)
+    l = process_idx(l) unless l.nil?
     l = process_ruby(l) unless l.nil?
   end
   l
