@@ -5,6 +5,7 @@ require 'optparse'
 
 $show_verb = false
 $dump = false
+$secsep = '.'
 
 case ENV['LANG']
 when /\Aja_/
@@ -278,11 +279,11 @@ def secid_to_secname(secid)
   a = secid.split('-')
   case a[0]
   when 'Afront'
-    a[1..-1].map{|n| romanize(n.to_i)}.join('.')
+    a[1..-1].map{|n| romanize(n.to_i)}.join($secsep)
   when 'Bsection'
-    a[1..-1].join('.')
+    a[1..-1].join($secsep)
   when 'Cback'
-    a[1..-1].map{|n| romanize(n.to_i).upcase}.join('.')
+    a[1..-1].map{|n| romanize(n.to_i).upcase}.join($secsep)
   else
     $stderr.puts "Unknown section ID #{secid}"
     'XX'
@@ -741,8 +742,9 @@ end
 
 def main
   opt = OptionParser.new
-  opt.on('--verb', 'Show verbatim lines for debug manuscript') { $show_verb = true }
-  opt.on('--dump', 'Dump all lines under processing') { $dump = true }
+  opt.on('-v', '--verb', 'Show verbatim lines for debug manuscript') { $show_verb = true }
+  opt.on('-d', '--dump', 'Dump all lines under processing') { $dump = true }
+  opt.on('-s sep', 'Separator for section names in index') {|v| $secsep = v}
   opt.parse!(ARGV)
 
   $state = LpmpState.new
