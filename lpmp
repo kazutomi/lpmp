@@ -135,7 +135,7 @@ class Index
 
   private
     def canon_yomi(yomi)
-      s = yomi.tr('ァ-ン', 'ぁ-ん')
+      s = yomi.upcase.tr('ァ-ン', 'ぁ-ん')
       s.gsub!(/([^ー])ー+/) do
         pre = $1
         repl = ChouonMap[pre] || 'ー'  # revert if not in ChouonMap
