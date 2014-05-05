@@ -672,7 +672,7 @@ def switch_verb(l)
     when /\A(.?> )?~+\Z/
       $state.verb = l.line
       $state.verb_startline = l.no
-    when /\A(.?> )?@<list>\{[^}]+\}\[.*\]\s*\Z/
+    when /\A(.?> )?@<list>\{[^}]+\}\[.*\](\{[^}]*\})?\s*\Z/
       tbhead = $1 || ''
       $state.verb = "#{tbhead}@<list>"
       $state.verb_startline = l.no
