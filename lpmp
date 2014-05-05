@@ -116,7 +116,12 @@ class Index
     def initialize(sec, kw, yomi = nil)
       @sec = sec
       @kw = kw
-      @yomi = yomi
+      @yomi = canon_yomi(yomi)
+    end
+
+  private
+    def canon_yomi(yomi)
+      yomi.tr('ァ-ン', 'ぁ-ん')
     end
   end
 
