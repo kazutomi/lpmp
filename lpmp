@@ -161,10 +161,12 @@ class Index
 
     # generate index entry
     gies.map do |gie|
-      secnames = gie.secs.map {|s| secid_to_secname(s) }.join(", ")
+      secrefs = gie.secs.map do |s|
+        "[#{secid_to_secname(s)}](##{s})"
+      end.join(", ")
       [
         LineStream::InputLine.new("**#{gie.kw}**", lineno),
-        LineStream::InputLine.new(": #{secnames}", lineno),
+        LineStream::InputLine.new(": #{secrefs}", lineno),
         LineStream::InputLine.new("", lineno),
       ]
     end.flatten
