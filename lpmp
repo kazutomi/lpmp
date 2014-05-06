@@ -12,17 +12,19 @@ when /\Aja_/
   FigureFormat = "図%s　"
   TableFormat = "表%s　"
   CodeListFormat = "リスト%s　"
+  FootnoteIndexMark = "^脚注^"
 else
   FigureFormat = "Figure %s: "
   TableFormat = "Table %s: "
   CodeListFormat = "List %s: "
+  FootnoteIndexMark = "^footnote^"
 end
 
 class LpmpState
   DefaultSectionDepth = 5
   attr_accessor :file_name, :matter, :secno, :figno, :tblno, :listno,
                 :verb, :verb_startline, :cmd, :last_cmd_line, :cmd_skip,
-                :cmd_startline, :bibno
+                :cmd_startline, :bibno, :footnote
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
@@ -40,6 +42,7 @@ class LpmpState
     @cmd_skip = 0
     @cmd_startline = nil
     @bibno = 0
+    @footnote = false
   end
 
   def reset_sections
@@ -111,7 +114,7 @@ end
 
 class Index
   class IndexEntry
-    attr_accessor :sec, :kw, :yomi, :emph
+    attr_accessor :sec, :kw, :yomi, :emph, :footnote
 
     ChouonMap = {}
     [
@@ -127,11 +130,12 @@ class Index
       end
     end
 
-    def initialize(sec, kw, yomi = nil, emph = false)
+    def initialize(sec, kw, yomi = nil, emph = false, footnote = false)
       @sec = sec
       @kw = kw
       @yomi = canon_yomi(yomi)
       @emph = emph
+      @footnote = footnote
     end
 
     def <=>(other)
@@ -143,7 +147,13 @@ class Index
         d
       else
         if @emph == other.emph
-          0
+          if @footnote == other.footnote
+            0
+          elsif @footnote
+            1
+          else
+            -1
+          end
         elsif @emph
           1
         else
@@ -163,6 +173,7 @@ class Index
     def ===(other)
       (@yomi <=> other.yomi) == 0 and
       (@kw <=> other.kw) == 0 and
+      (@footnote <=> other.footnote) == 0 and
       section_id_diff(@sec, other.sec) == 0
     end
 
@@ -194,8 +205,8 @@ class Index
     @list = []
   end
 
-  def put(sec, kw, yomi = nil, emph = false)
-    @list << IndexEntry.new(sec, kw, yomi, emph)
+  def put(sec, kw, yomi = nil, emph = false, footnote = false)
+    @list << IndexEntry.new(sec, kw, yomi, emph, footnote)
   end
 
   def generate(lineno)
@@ -206,22 +217,23 @@ class Index
     lastie = nil
     ies.each do |ie|
       if gies.size == 0
-        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [[ie.sec, ie.emph]])
+        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [[ie.sec, ie.emph, ie.footnote]])
         lastie = ie
       elsif lastie.kw == ie.kw and lastie.yomi == ie.yomi
-        if lastie.sec != ie.sec
-          gies[-1].secs << [ie.sec, ie.emph]
-          lastie = ie
-        else  # same section
+        # should be gathered
+        if lastie.sec == ie.sec and lastie.footnote == ie.footnote
           if !lastie.emph and ie.emph
             gies[-1].secs[-1][1] = true
             lastie = ie
           else
             # same, or non-emph after emph; ignore
           end
+        else  # different section or footnote
+          gies[-1].secs << [ie.sec, ie.emph, ie.footnote]
+          lastie = ie
         end
       else  # kw or yomi different
-        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [[ie.sec, ie.emph]])
+        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [[ie.sec, ie.emph, ie.footnote]])
         lastie = ie
       end
     end
@@ -229,10 +241,11 @@ class Index
     # generate index entry
     gies.map do |gie|
       secrefs = gie.secs.map do |a|
+        fnmark = a[2] ? FootnoteIndexMark : ''
         if a[1]  # emphasize
-          "[**#{secid_to_secname(a[0])}**](##{a[0]})"
+          "[**#{secid_to_secname(a[0])}#{fnmark}**](##{a[0]})"
         else
-          "[#{secid_to_secname(a[0])}](##{a[0]})"
+          "[#{secid_to_secname(a[0])}#{fnmark}](##{a[0]})"
         end
       end.join(", ")
       [
@@ -255,12 +268,13 @@ $index = Index.new
 NPass = 2  # two-pass processing
 
 def collect_index(l)  # Pass 1
-  l.line.scan(/@<(kw|h?idx)>{([^,}]+)(,([^}]+))?}/) do
+  l.line.scan(/@<(kw|h?idx)>{([^,}]+)(,([^}]+?)(,([^}]+))?)?}/) do
     emph = ($1 == 'kw')
     kw = $2
     yomi = $4
+    emph = true if $6
     sec = section_id($state.matter, $state.secno, $state.secdepth)
-    $index.put(sec, kw, yomi.nil? ? kw : yomi, emph)
+    $index.put(sec, kw, yomi.nil? ? kw : yomi, emph, $state.footnote)
   end
   l
 end
@@ -744,8 +758,19 @@ def switch_verb(l)
   l
 end
 
+def switch_footnote(l)
+  if $state.footnote
+    $state.footnote = false if /\A\Z/ =~ l.line
+  else
+    $state.footnote = true if /\A\[[^\]]+\]: / =~ l.line
+  end
+  l
+end
+
 def process_file(in_lines, pass)
   out_lines = LineStream.new
+
+  $state.footnote = false
 
   case pass
   when 0  # number sections and figures
@@ -772,6 +797,7 @@ def process_file(in_lines, pass)
             end
           else
             in_lines.unshift(switch_matter(in_lines.getl))
+            in_lines.unshift(switch_footnote(in_lines.getl))
             in_lines.unshift(number_sections(in_lines.getl))
             in_lines.unshift(number_figures(in_lines.getl))
             in_lines.unshift(number_tables(in_lines.getl))
