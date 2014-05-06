@@ -5,6 +5,7 @@ require 'optparse'
 
 $show_verb = false
 $dump = false
+$secsep = '.'
 
 case ENV['LANG']
 when /\Aja_/
@@ -108,17 +109,170 @@ class LineStream
   end
 end
 
+class Index
+  class IndexEntry
+    attr_accessor :sec, :kw, :yomi, :emph
+
+    ChouonMap = {}
+    [
+      ["あ", "ぁあかさたなはまやらわがざだばぱゃゎ"],
+      ["い", "ぃいきしちにひみいりゐぎじぢびぴ"],
+      ["う", "ぅうくすつぬふむゆるうぐずづぶぷゅヴっ"],
+      ["え", "ぇえけせてねへめえれゑげぜでべぺ"],
+      ["お", "ぉおこそとのほもよろをごぞどぼぽょ"],
+      ["ん", "ん"],
+    ].each do |a|
+      a[1].scan(/./) do |kana|
+        ChouonMap[kana] = a[0]
+      end
+    end
+
+    def initialize(sec, kw, yomi = nil, emph = false)
+      @sec = sec
+      @kw = kw
+      @yomi = canon_yomi(yomi)
+      @emph = emph
+    end
+
+    def <=>(other)
+      if (d = @yomi <=> other.yomi) != 0
+        d
+      elsif (d = @kw <=> other.kw) != 0
+        d
+      elsif (d = section_id_diff(@sec, other.sec)) != 0
+        d
+      else
+        if @emph == other.emph
+          0
+        elsif @emph
+          1
+        else
+          -1
+        end
+      end
+    end
+
+    def ==(other)
+      (self <=> other) == 0
+    end
+
+    def eql?(other)
+      self == other
+    end
+
+    def ===(other)
+      (@yomi <=> other.yomi) == 0 and
+      (@kw <=> other.kw) == 0 and
+      section_id_diff(@sec, other.sec) == 0
+    end
+
+  private
+    def canon_yomi(yomi)
+      s = yomi.upcase.tr('ァ-ン', 'ぁ-ん')
+      s.gsub!(/([^ー])ー+/) do
+        pre = $1
+        repl = ChouonMap[pre] || 'ー'  # revert if not in ChouonMap
+        "#{pre}#{repl}"
+      end
+      s
+    end
+  end
+
+  class GatheredIndexEntry
+    attr_accessor :kw, :yomi, :secs
+
+    def initialize(kw, yomi, secs = [])
+      @kw = kw
+      @yomi = yomi
+      @secs = secs
+    end
+  end
+
+  attr_accessor :list  # of IndexEntry
+
+  def initialize
+    @list = []
+  end
+
+  def put(sec, kw, yomi = nil, emph = false)
+    @list << IndexEntry.new(sec, kw, yomi, emph)
+  end
+
+  def generate(lineno)
+    ies = @list.sort
+    gies = []  # of GatheredIndexEntry
+
+    # gather entries
+    lastie = nil
+    ies.each do |ie|
+      if gies.size == 0
+        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [[ie.sec, ie.emph]])
+        lastie = ie
+      elsif lastie.kw == ie.kw and lastie.yomi == ie.yomi
+        if lastie.sec != ie.sec
+          gies[-1].secs << [ie.sec, ie.emph]
+          lastie = ie
+        else  # same section
+          if !lastie.emph and ie.emph
+            gies[-1].secs[-1][1] = true
+            lastie = ie
+          else
+            # same, or non-emph after emph; ignore
+          end
+        end
+      else  # kw or yomi different
+        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [[ie.sec, ie.emph]])
+        lastie = ie
+      end
+    end
+
+    # generate index entry
+    gies.map do |gie|
+      secrefs = gie.secs.map do |a|
+        if a[1]  # emphasize
+          "[**#{secid_to_secname(a[0])}**](##{a[0]})"
+        else
+          "[#{secid_to_secname(a[0])}](##{a[0]})"
+        end
+      end.join(", ")
+      [
+        LineStream::InputLine.new("**#{gie.kw}**", lineno),
+        LineStream::InputLine.new(": #{secrefs}", lineno),
+        LineStream::InputLine.new("", lineno),
+      ]
+    end.flatten
+  end
+end
+
 $state = nil
 $figtag = {}
 $tbltag = {}
 $listtag = {}
 $seclabel = {}
 $bibmap = {}
+$index = Index.new
 
 NPass = 2  # two-pass processing
 
-def process_kw(l)
-  l.line.gsub!(/@<kw>{([^,}]+)(,[^}]+)?}/){"**#{$1}**"}  # ignore yomi for now
+def collect_index(l)  # Pass 1
+  l.line.scan(/@<(kw|h?idx)>{([^,}]+)(,([^}]+))?}/) do
+    emph = ($1 == 'kw')
+    kw = $2
+    yomi = $4
+    sec = section_id($state.matter, $state.secno, $state.secdepth)
+    $index.put(sec, kw, yomi.nil? ? kw : yomi, emph)
+  end
+  l
+end
+
+def process_kw(l)  # Pass 2
+  l.line.gsub!(/@<kw>{([^,}]+)(,([^}]+))?}/) {"**#{$1}**"}
+  l
+end
+
+def process_idx(l)  # Pass 2
+  l.line.gsub!(/@<idx>{([^,}]+)(,([^}]+))?}/) { $1 }
+  l.line.gsub!(/@<hidx>{[^}]*}/, '')
   l
 end
 
@@ -127,12 +281,21 @@ def process_ruby(l)
   l
 end
 
-def process_commands(l)
+def scan_commands(l)
+  if /^@@/ =~ l.line
+    # reserved for line directive
+  else
+    l = collect_index(l)
+  end
+end
+
+def replace_commands(l)  # Pass 2
   if /^@@/ =~ l.line
     # reserved for line directive
     l = nil
   else
     l = process_kw(l)
+    l = process_idx(l) unless l.nil?
     l = process_ruby(l) unless l.nil?
   end
   l
@@ -154,20 +317,72 @@ def switch_matter(l)
   l
 end
 
+# XXX: too many section operations; should be gathered as object
+
+def section_id_diff(s1, s2)
+  a1 = s1.split('-')
+  a2 = s2.split('-')
+  if (d = a1[0] <=> a2[0]) != 0
+    return d
+  end
+  n = a1.size < a2.size ? a1.size : a2.size
+  for i in 1..n
+    if (d = a1[i].to_i <=> a2[i].to_i) != 0
+      return d
+    end
+  end
+  a1.size <=> a2.size
+end
+
 def section_id(matter, secno, depth)
   s = case matter
       when :front
-        'front'
+        'Afront'
       when :main
-        'section'
+        'Bsection'
       when :back
-        'back'
+        'Cback'
       end
   for i in 0..depth do
     break if secno[i] == 0
     s += "-#{secno[i]}"
   end
   s
+end
+
+def romanize(n)
+  h = {
+    1 => 'i', 2 => 'ii', 3 => 'iii', 4 => 'iv', 5 => 'v',
+    6 => 'vi', 7 => 'vii', 8 => 'viii', 9 => 'ix', 10 => 'x',
+    20 => 'xx', 30 => 'xxx', 40 => 'xl', 50 => 'l',
+  }
+  a = h.to_a.sort{|x,y| y[0] <=> x[0]}.map{|a| a[0]}
+  s = ''
+  loop do
+    a.each do |m|
+      if n >= m
+        n -= m
+        s += h[m]
+      end
+    end
+    break if n == 0
+  end
+  s
+end
+
+def secid_to_secname(secid)
+  a = secid.split('-')
+  case a[0]
+  when 'Afront'
+    a[1..-1].map{|n| romanize(n.to_i)}.join($secsep)
+  when 'Bsection'
+    a[1..-1].join($secsep)
+  when 'Cback'
+    a[1..-1].map{|n| romanize(n.to_i).upcase}.join($secsep)
+  else
+    $stderr.puts "Unknown section ID #{secid}"
+    'XX'
+  end
 end
 
 def number_sections(l)
@@ -457,6 +672,14 @@ def reference_bibitems(l)
   l
 end
 
+def generate_index(l)  # Pass 2
+  if /\A@<index>\{\}\s*\Z/ =~ l.line
+    $index.generate(l.no)
+  else
+    l
+  end
+end
+
 def switch_cmd(l)
   if /\A(.?> )?@<cmd>\{([^}]+)?\}\s*\Z/ =~ l.line
     $state.cmd = $1 || ''
@@ -512,7 +735,7 @@ def switch_verb(l)
     when /\A(.?> )?~+\Z/
       $state.verb = l.line
       $state.verb_startline = l.no
-    when /\A(.?> )?@<list>\{[^}]+\}\[.*\]\s*\Z/
+    when /\A(.?> )?@<list>\{[^}]+\}\[.*\](\{[^}]*\})?\s*\Z/
       tbhead = $1 || ''
       $state.verb = "#{tbhead}@<list>"
       $state.verb_startline = l.no
@@ -554,6 +777,7 @@ def process_file(in_lines, pass)
             in_lines.unshift(number_tables(in_lines.getl))
             in_lines.unshift(label_sections(in_lines.getl))
             in_lines.unshift(number_bibitems(in_lines.getl))
+            in_lines.unshift(scan_commands(in_lines.getl))
           end
         end
       end
@@ -578,8 +802,9 @@ def process_file(in_lines, pass)
           in_lines.unshift(reference_tables(in_lines.getl))
           in_lines.unshift(reference_code_lists(in_lines.getl))
           in_lines.unshift(reference_sections(in_lines.getl))
-          in_lines.unshift(process_commands(in_lines.getl))
+          in_lines.unshift(replace_commands(in_lines.getl))
           in_lines.unshift(reference_bibitems(in_lines.getl))
+          in_lines.unshift(generate_index(in_lines.getl))
         end
       end
       if (l = in_lines.getl)
@@ -612,8 +837,9 @@ end
 
 def main
   opt = OptionParser.new
-  opt.on('--verb', 'Show verbatim lines for debug manuscript') { $show_verb = true }
-  opt.on('--dump', 'Dump all lines under processing') { $dump = true }
+  opt.on('-v', '--verb', 'Show verbatim lines for debug manuscript') { $show_verb = true }
+  opt.on('-d', '--dump', 'Dump all lines under processing') { $dump = true }
+  opt.on('-s sep', 'Separator for section names in index') {|v| $secsep = v}
   opt.parse!(ARGV)
 
   $state = LpmpState.new
