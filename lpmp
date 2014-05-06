@@ -111,7 +111,7 @@ end
 
 class Index
   class IndexEntry
-    attr_accessor :sec, :kw, :yomi
+    attr_accessor :sec, :kw, :yomi, :emph
 
     ChouonMap = {}
     [
@@ -127,10 +127,43 @@ class Index
       end
     end
 
-    def initialize(sec, kw, yomi = nil)
+    def initialize(sec, kw, yomi = nil, emph = false)
       @sec = sec
       @kw = kw
       @yomi = canon_yomi(yomi)
+      @emph = emph
+    end
+
+    def <=>(other)
+      if (d = @yomi <=> other.yomi) != 0
+        d
+      elsif (d = @kw <=> other.kw) != 0
+        d
+      elsif (d = section_id_diff(@sec, other.sec)) != 0
+        d
+      else
+        if @emph == other.emph
+          0
+        elsif @emph
+          1
+        else
+          -1
+        end
+      end
+    end
+
+    def ==(other)
+      (self <=> other) == 0
+    end
+
+    def eql?(other)
+      self == other
+    end
+
+    def ===(other)
+      (@yomi <=> other.yomi) == 0 and
+      (@kw <=> other.kw) == 0 and
+      section_id_diff(@sec, other.sec) == 0
     end
 
   private
@@ -161,42 +194,46 @@ class Index
     @list = []
   end
 
-  def put(sec, kw, yomi = nil)
-    @list << IndexEntry.new(sec, kw, yomi)
+  def put(sec, kw, yomi = nil, emph = false)
+    @list << IndexEntry.new(sec, kw, yomi, emph)
   end
 
   def generate(lineno)
+    ies = @list.sort
     gies = []  # of GatheredIndexEntry
-    ies = @list.sort do |e1,e2|
-      yomidiff = e1.yomi <=> e2.yomi
-      kwdiff = e1.kw <=> e2.kw
-      if yomidiff != 0
-        yomidiff
-      else
-        kwdiff
-      end
-    end
 
-    # gather by uniq'ing
+    # gather entries
+    lastie = nil
     ies.each do |ie|
       if gies.size == 0
-        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [ie.sec])
-      elsif gies[-1].kw == ie.kw and gies[-1].yomi == ie.yomi
-        gies[-1].secs << ie.sec
-      else
-        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [ie.sec])
+        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [[ie.sec, ie.emph]])
+        lastie = ie
+      elsif lastie.kw == ie.kw and lastie.yomi == ie.yomi
+        if lastie.sec != ie.sec
+          gies[-1].secs << [ie.sec, ie.emph]
+          lastie = ie
+        else  # same section
+          if !lastie.emph and ie.emph
+            gies[-1].secs[-1][1] = true
+            lastie = ie
+          else
+            # same, or non-emph after emph; ignore
+          end
+        end
+      else  # kw or yomi different
+        gies << GatheredIndexEntry.new(ie.kw, ie.yomi, [[ie.sec, ie.emph]])
+        lastie = ie
       end
-    end
-
-    # uniq section numbers
-    gies.each do |gie|
-      gie.secs = gie.secs.sort.uniq
     end
 
     # generate index entry
     gies.map do |gie|
-      secrefs = gie.secs.map do |s|
-        "[#{secid_to_secname(s)}](##{s})"
+      secrefs = gie.secs.map do |a|
+        if a[1]  # emphasize
+          "[**#{secid_to_secname(a[0])}**](##{a[0]})"
+        else
+          "[#{secid_to_secname(a[0])}](##{a[0]})"
+        end
       end.join(", ")
       [
         LineStream::InputLine.new("**#{gie.kw}**", lineno),
@@ -219,10 +256,11 @@ NPass = 2  # two-pass processing
 
 def collect_index(l)  # Pass 1
   l.line.scan(/@<(kw|h?idx)>{([^,}]+)(,([^}]+))?}/) do
+    emph = ($1 == 'kw')
     kw = $2
     yomi = $4
     sec = section_id($state.matter, $state.secno, $state.secdepth)
-    $index.put(sec, kw, yomi.nil? ? kw : yomi)
+    $index.put(sec, kw, yomi.nil? ? kw : yomi, emph)
   end
   l
 end
@@ -277,6 +315,23 @@ def switch_matter(l)
   else
   end
   l
+end
+
+# XXX: too many section operations; should be gathered as object
+
+def section_id_diff(s1, s2)
+  a1 = s1.split('-')
+  a2 = s2.split('-')
+  if (d = a1[0] <=> a2[0]) != 0
+    return d
+  end
+  n = a1.size < a2.size ? a1.size : a2.size
+  for i in 1..n
+    if (d = a1[i].to_i <=> a2[i].to_i) != 0
+      return d
+    end
+  end
+  a1.size <=> a2.size
 end
 
 def section_id(matter, secno, depth)
