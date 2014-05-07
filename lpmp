@@ -401,6 +401,9 @@ end
 
 def number_sections(l)
   return l unless /\A(.?> )?(#+)/ =~ l.line
+
+  return l if $1  # XXX: just ignore ones in asides; inconvenient for readers
+
   tbhead = $1 || ''
   sharps = $2
   depth = sharps.size - 1  # zero-origin
