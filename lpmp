@@ -268,13 +268,13 @@ $index = Index.new
 NPass = 2  # two-pass processing
 
 def collect_index(l)  # Pass 1
-  l.line.scan(/@<(kw|h?idx)>{([^,}]+)(,([^}]+?)(,([^}]+))?)?}/) do
+  l.line.scan(/@<(kw|h?idx)>{([^,}]+)(,([^}]*?)(,([^}]+))?)?}/) do
     emph = ($1 == 'kw')
     kw = $2
-    yomi = $4
+    yomi = $4 || ''
     emph = true if $6
     sec = section_id($state.matter, $state.secno, $state.secdepth)
-    $index.put(sec, kw, yomi.nil? ? kw : yomi, emph, $state.footnote)
+    $index.put(sec, kw, (yomi == '') ? kw : yomi, emph, $state.footnote)
   end
   l
 end
