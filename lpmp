@@ -315,6 +315,23 @@ def replace_commands(l)  # Pass 2
   l
 end
 
+# XXX hidden command @#### and like, under test
+# n.b. needs empty line before and after to work as expected
+def expand_unnumbered_section(l)  # Pass 1
+  if /\A@(#+) +(.*?)( +(\{[^}]*\}))?\s*\Z/ =~ l.line
+    heading = $2
+    options = $4
+    l.line = "**#{$2}**"
+
+    lines = []
+    lines << LineStream::InputLine.new(options, l.no) if options
+    lines << l
+    lines
+  else
+    l
+  end
+end
+
 def switch_matter(l)
   case l.line
   when '{frontmatter}'
@@ -799,6 +816,7 @@ def process_file(in_lines, pass)
               in_lines.unshift(process_cmd(in_lines.getl))
             end
           else
+            in_lines.unshift(expand_unnumbered_section(in_lines.getl))
             in_lines.unshift(switch_matter(in_lines.getl))
             in_lines.unshift(switch_footnote(in_lines.getl))
             in_lines.unshift(number_sections(in_lines.getl))
