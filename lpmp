@@ -261,6 +261,7 @@ $state = nil
 $figtag = {}
 $tbltag = {}
 $listtag = {}
+$listcap = {}
 $seclabel = {}
 $bibmap = {}
 $index = Index.new
@@ -473,12 +474,16 @@ end
 
 def number_code_lists(l)
   case l.line
-  when /@<list>\{([^}]*)\}/
+  when /\A(.?> )?@<list>\{([^}]*)\}\[(([^\[]*\[[^\]]*\])*[^\]]*)\]\(([^)]*)\)(\{([^}]*)\})?\s*\Z/,
+       /\A(.?> )?@<list>\{([^}]*)\}\[(([^\[]*\[[^\]]*\])*[^\]]*)\](\{([^}]*)\})?\s*\Z/
+    tag = $2
+    caption = $3
     $state.listno += 1
-    if $listtag.key?($1)
-      $stderr.puts "#{$state.file_name}:#{l.no}: warning: duplicate list tag #{$1}"
+    if $listtag.key?(tag)
+      $stderr.puts "#{$state.file_name}:#{l.no}: warning: duplicate list tag #{tag}"
     else
-      $listtag[$1] = "#{$state.secno[0]}.#{$state.listno}"
+      $listtag[tag] = "#{$state.secno[0]}.#{$state.listno}"
+      $listcap[tag] = caption
     end
   end
   l
