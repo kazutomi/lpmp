@@ -263,6 +263,7 @@ $tbltag = {}
 $lists = []
 $listtag = {}
 $listcap = {}
+$listsec = {}
 $seclabel = {}
 $bibmap = {}
 $index = Index.new
@@ -486,6 +487,7 @@ def number_code_lists(l)
       $lists << tag
       $listtag[tag] = "#{$state.secno[0]}.#{$state.listno}"
       $listcap[tag] = caption
+      $listsec[tag] = section_id($state.matter, $state.secno, $state.secdepth)
     end
   end
   l
@@ -725,7 +727,7 @@ def gen_list_lists(lineno)
   lines = []
   $lists.each do |tag|
     lines << LineStream::InputLine.new(
-      "- [#{code_list_format($listtag[tag])}](##{tag})#{$listcap[tag]}",
+      "- [#{code_list_format($listtag[tag])}](##{tag})#{$listcap[tag]} ... [#{secid_to_secname($listsec[tag])}](##{$listsec[tag]})",
       lineno
     )
   end
