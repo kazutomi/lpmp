@@ -260,6 +260,7 @@ end
 $state = nil
 $figtag = {}
 $tbltag = {}
+$lists = []
 $listtag = {}
 $listcap = {}
 $seclabel = {}
@@ -482,6 +483,7 @@ def number_code_lists(l)
     if $listtag.key?(tag)
       $stderr.puts "#{$state.file_name}:#{l.no}: warning: duplicate list tag #{tag}"
     else
+      $lists << tag
       $listtag[tag] = "#{$state.secno[0]}.#{$state.listno}"
       $listcap[tag] = caption
     end
@@ -599,7 +601,7 @@ def tag_code_lists(l)
     tbhead = $1 || ''
     tag = $2
     listno = $listtag[tag] || 'XX'
-    caption = $3
+    caption = $3  # though it is already in $listcap
     file = $5
     options = $7
     options = ', ' + options if options and options != ''
@@ -714,6 +716,25 @@ end
 def generate_index(l)  # Pass 2
   if /\A@<index>\{\}\s*\Z/ =~ l.line
     $index.generate(l.no)
+  else
+    l
+  end
+end
+
+def gen_list_lists(lineno)
+  lines = []
+  $lists.each do |tag|
+    lines << LineStream::InputLine.new(
+      "- [#{code_list_format($listtag[tag])}](##{tag})#{$listcap[tag]}",
+      lineno
+    )
+  end
+  lines
+end
+
+def generate_list_lists(l)  # Pass 2
+  if /\A@<lists>\{\}\s*\Z/ =~ l.line
+    gen_list_lists(l.no)
   else
     l
   end
@@ -857,6 +878,7 @@ def process_file(in_lines, pass)
           in_lines.unshift(replace_commands(in_lines.getl))
           in_lines.unshift(reference_bibitems(in_lines.getl))
           in_lines.unshift(generate_index(in_lines.getl))
+          in_lines.unshift(generate_list_lists(in_lines.getl))
         end
       end
       if (l = in_lines.getl)
