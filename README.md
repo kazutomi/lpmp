@@ -32,6 +32,7 @@ Giving any third argument to `@<idx>` or `@<hidx>` makes the index entry boldfac
 - `@<list>{tag}[caption](file)` : insert code
 - `@<list>{tag}[caption]` ... `@<list>` : literal code block
 - `@<list>(tag)` : list reference
+- `@<lists>{}` : generates the list of lists
 - `@<cmd>{option}` ... `@<cmd>` : command-line session
 - `@<slabel>{tag}` : label the section
 - `@<sref>(tag)` : reference to section
