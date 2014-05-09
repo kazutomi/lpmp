@@ -818,13 +818,21 @@ def switch_footnote(l)
 end
 
 def join_two_lines(s, t)
-  sm = /\A((.?> )?)(.*)\Z/.match(s)
-  tm = /\A((.?> )?)(.*)\Z/.match(t)
-
-  if sm[1] == tm[1]
-    sm[1] + sm[3] + tm[3]
+  if $state.footnote
+    if /\A    ([^ ].*)\Z/ =~ t
+      s + $1
+    else
+      s + t
+    end
   else
-    s + t
+    sm = /\A((.?> )?)(.*)\Z/.match(s)
+    tm = /\A((.?> )?)(.*)\Z/.match(t)
+
+    if sm[1] == tm[1]
+      sm[1] + sm[3] + tm[3]
+    else
+      s + t
+    end
   end
 end
 
@@ -931,12 +939,12 @@ def process_file(in_lines, pass)
         if $state.verb
           puts "VERB (pass 3):#{$state.file_name}:#{in_lines.peekl.no}: #{in_lines.peekl.line}" if $show_verb
         else
-          loop do
-            break if (l = in_lines.getl).nil?
-            if (l = join_lines(l))
-              in_lines.unshift(l)
-              break
-            end
+          until in_lines.peekl.nil?
+            in_lines.unshift(switch_footnote(in_lines.getl))
+            l = join_lines(in_lines.getl)
+            next if l.nil?  # joining
+            in_lines.unshift(l)
+            break
           end
         end
       end
