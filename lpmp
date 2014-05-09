@@ -25,7 +25,7 @@ class LpmpState
   DefaultSectionDepth = 5
   attr_accessor :file_name, :matter, :secno, :figno, :tblno, :listno,
                 :verb, :verb_startline, :cmd, :last_cmd_line, :cmd_skip,
-                :cmd_startline, :bibno, :footnote, :joined_line, :prev_line
+                :cmd_startline, :bibno, :footnote, :joined_line
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
@@ -45,7 +45,6 @@ class LpmpState
     @bibno = 0
     @footnote = false
     @joined_line = nil
-    @prev_line = nil
   end
 
   def reset_sections
@@ -819,7 +818,21 @@ def switch_footnote(l)
 end
 
 def join_lines(l)  # Pass 3
-  l
+  out = LineStream::InputLine.new(nil, l.no)
+
+  if $state.joined_line
+    out.line = $state.joined_line + l.line
+  else
+    out.line = l.line
+  end
+
+  if out.line == '\\' or /[^\\]\\\Z/ =~ out.line
+    $state.joined_line = out.line.chop
+    nil
+  else
+    $state.joined_line = nil
+    out
+  end
 end
 
 def process_file(in_lines, pass)
@@ -827,7 +840,6 @@ def process_file(in_lines, pass)
 
   $state.footnote = false
   $state.joined_line = nil
-  $state.prev_line = nil
 
   case pass
   when 0  # number sections and figures
@@ -908,7 +920,13 @@ def process_file(in_lines, pass)
         if $state.verb
           puts "VERB (pass 3):#{$state.file_name}:#{in_lines.peekl.no}: #{in_lines.peekl.line}" if $show_verb
         else
-          in_lines.unshift(join_lines(in_lines.getl))
+          loop do
+            break if (l = in_lines.getl).nil?
+            if (l = join_lines(l))
+              in_lines.unshift(l)
+              break
+            end
+          end
         end
       end
       if (l = in_lines.getl)
@@ -931,6 +949,12 @@ def process_file(in_lines, pass)
   if $state.cmd and pass == 0
     $stderr.puts "#{$state.file_name}: warning: ends in @<cmd> block (started at line #{$state.cmd_startline})"
     $state.cmd = false
+  end
+
+  if $state.joined_line and pass == 2
+    $stderr.puts "#{$state.file_name}: warning: ending with a backslash (ignored)"
+    l = join_lines(LineStream::InputLine.new('', 0))  # flush
+    out_lines.putl(l)
   end
 
   out_lines
