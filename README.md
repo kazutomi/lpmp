@@ -48,3 +48,7 @@ in `{...}` form: e.g., `@<list>{...}[...]{linenos=off}`
 
 Do not add `#` in front of tags specified in `@<...>` commands;
 they automatically add one if necessary.
+
+## Other functions
+
+- a single backslash (`\`) at end of line joins it with the next line (works in asides as well)
