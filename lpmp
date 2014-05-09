@@ -817,11 +817,22 @@ def switch_footnote(l)
   l
 end
 
+def join_two_lines(s, t)
+  sm = /\A((.?> )?)(.*)\Z/.match(s)
+  tm = /\A((.?> )?)(.*)\Z/.match(t)
+
+  if sm[1] == tm[1]
+    sm[1] + sm[3] + tm[3]
+  else
+    s + t
+  end
+end
+
 def join_lines(l)  # Pass 3
   out = LineStream::InputLine.new(nil, l.no)
 
   if $state.joined_line
-    out.line = $state.joined_line + l.line
+    out.line = join_two_lines($state.joined_line, l.line)
   else
     out.line = l.line
   end
