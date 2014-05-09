@@ -48,3 +48,9 @@ in `{...}` form: e.g., `@<list>{...}[...]{linenos=off}`
 
 Do not add `#` in front of tags specified in `@<...>` commands;
 they automatically add one if necessary.
+
+## Experimental
+
+The following functions are experimental and may be changed or removed later:
+
+- `@#`, `@##`, and like make the heading unnumbered (with the small font, boldface)
