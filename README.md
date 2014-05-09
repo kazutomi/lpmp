@@ -2,15 +2,17 @@
 
 ## Usage
 
-    $ lpmp [--verb] [--dump]
+    $ lpmp [-v|--verb] [-d|--dump] [-s sep] [-h]
 
 The command reads Book.txt and *.lmp files
 and generates corresponding .txt or .md files.
 If Book.txt has a '01.txt' (or '01.md') entry,
 provide 01.lmp and run lpmp to produce 01.txt (or 01.md).
 
-* `--verb`: display verbatim lines for debug
-* `--dump`: display all lines under processing
+* `-s` or `--verb` : display verbatim lines for debug
+* `-d` or `--dump` : display all lines under processing
+* `-s sep` : separator for section names in index (default `.`)
+* `-h` : show help
 
 ## Commands available in .lmp files
 
