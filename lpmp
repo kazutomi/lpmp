@@ -25,7 +25,7 @@ class LpmpState
   DefaultSectionDepth = 5
   attr_accessor :file_name, :matter, :secno, :figno, :tblno, :listno,
                 :verb, :verb_startline, :cmd, :last_cmd_line, :cmd_skip,
-                :cmd_startline, :bibno, :footnote
+                :cmd_startline, :bibno, :footnote, :joined_line, :prev_line
   attr_reader :secdepth
 
   def initialize(sec_depth = DefaultSectionDepth)
@@ -44,6 +44,8 @@ class LpmpState
     @cmd_startline = nil
     @bibno = 0
     @footnote = false
+    @joined_line = nil
+    @prev_line = nil
   end
 
   def reset_sections
@@ -824,6 +826,8 @@ def process_file(in_lines, pass)
   out_lines = LineStream.new
 
   $state.footnote = false
+  $state.joined_line = nil
+  $state.prev_line = nil
 
   case pass
   when 0  # number sections and figures
