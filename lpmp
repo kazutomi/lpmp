@@ -6,6 +6,7 @@ require 'optparse'
 $show_verb = false
 $dump = false
 $secsep = '.'
+$join = false
 
 case ENV['LANG']
 when /\Aja_/
@@ -268,7 +269,7 @@ $seclabel = {}
 $bibmap = {}
 $index = Index.new
 
-NPass = 2  # two-pass processing
+NPass = 3  # two-pass processing + output line joining if $join
 
 def collect_index(l)  # Pass 1
   l.line.scan(/@<(kw|h?idx)>{([^,}]+)(,([^}]*?)(,([^}]+))?)?}/) do
@@ -815,6 +816,10 @@ def switch_footnote(l)
   l
 end
 
+def join_lines(l)  # Pass 3
+  l
+end
+
 def process_file(in_lines, pass)
   out_lines = LineStream.new
 
@@ -890,6 +895,22 @@ def process_file(in_lines, pass)
         end
       end
     end
+  when 2
+    while not in_lines.empty?
+      l = in_lines.peekl
+      puts "DUMP (pass 3):#{$state.file_name}:#{l.no}: #{l.line}" if $dump
+      unless l.line.start_with?('%%')
+        in_lines.unshift(switch_verb(in_lines.getl))
+        if $state.verb
+          puts "VERB (pass 3):#{$state.file_name}:#{in_lines.peekl.no}: #{in_lines.peekl.line}" if $show_verb
+        else
+          in_lines.unshift(join_lines(in_lines.getl))
+        end
+      end
+      if (l = in_lines.getl)
+        out_lines.putl(l)
+      end
+    end
   else
     $stderr.puts "Unexpected pass #{npass}"
     out_lines = in_lines
@@ -916,6 +937,7 @@ def main
   opt.on('-v', '--verb', 'Show verbatim lines for debug manuscript') { $show_verb = true }
   opt.on('-d', '--dump', 'Dump all lines under processing') { $dump = true }
   opt.on('-s sep', 'Separator for section names in index') {|v| $secsep = v}
+  opt.on('-j', '--join-lines', 'Join lines (needs 3rd pass)') { $join = true }
   opt.parse!(ARGV)
 
   $state = LpmpState.new
@@ -950,6 +972,7 @@ def main
       $state.file_name = lmpfiles[i]
       files_lines[i] = process_file(files_lines[i], npass)
     end
+    break if npass == 1 and not $join  # skip the 3rd pass
   end
 
   [mdfiles, files_lines].transpose.each do |mdf, lines|
