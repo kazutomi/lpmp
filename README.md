@@ -52,3 +52,9 @@ they automatically add one if necessary.
 ## Other functions
 
 - a single backslash (`\`) at end of line joins it with the next line (works in asides as well)
+
+## Experimental
+
+The following functions are experimental and may be changed or removed later:
+
+- `@#`, `@##`, and like make the heading unnumbered (with the small font, boldface)
