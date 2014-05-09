@@ -51,7 +51,7 @@ they automatically add one if necessary.
 
 ## Other functions
 
-- a single backslash (`\`) at end of line joins it with the next line (works in asides as well)
+- a single backslash (`\`) at end of line joins it with the next line (works in asides and footnotes as well)
 
 ## Experimental
 
