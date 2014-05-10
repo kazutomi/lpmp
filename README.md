@@ -2,7 +2,7 @@
 
 ## Usage
 
-    $ lpmp [-v|--verb] [-d|--dump] [-s sep] [-h]
+    $ lpmp [-v|--verb] [-d|--dump] [-s sep] [-j] [-h]
 
 The command reads Book.txt and *.lmp files
 and generates corresponding .txt or .md files.
@@ -12,6 +12,7 @@ provide 01.lmp and run lpmp to produce 01.txt (or 01.md).
 * `-s` or `--verb` : display verbatim lines for debug
 * `-d` or `--dump` : display all lines under processing
 * `-s sep` : separator for section names in index (default `.`)
+* `-j` : enable joining lines by backslash at line end; this feature requires the 3rd pass
 * `-h` : show help
 
 ## Commands available in .lmp files
@@ -49,9 +50,10 @@ in `{...}` form: e.g., `@<list>{...}[...]{linenos=off}`
 Do not add `#` in front of tags specified in `@<...>` commands;
 they automatically add one if necessary.
 
-## Other functions
+## Other features
 
-- a single backslash (`\`) at end of line joins it with the next line (works in asides and footnotes as well)
+**Joining lines**
+: A single backslash (`\`) at end of line joins it with the next line (works in asides and footnotes as well).  This feature is enabled by `-j` option.  Note that this function is performed in the extra 3rd pass, which is after any lpmp commands are processed (i.e., it just joins Markdown lines).
 
 ## Experimental
 
